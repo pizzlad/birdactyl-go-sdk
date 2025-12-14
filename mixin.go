@@ -14,6 +14,8 @@ const (
 	MixinServerUnsuspend = "server.unsuspend"
 	MixinServerReinstall = "server.reinstall"
 	MixinServerTransfer  = "server.transfer"
+	MixinServerList      = "server.list"
+	MixinServerGet       = "server.get"
 
 	MixinUserCreate       = "user.create"
 	MixinUserUpdate       = "user.update"
@@ -21,12 +23,16 @@ const (
 	MixinUserAuthenticate = "user.authenticate"
 	MixinUserBan          = "user.ban"
 	MixinUserUnban        = "user.unban"
+	MixinUserList         = "user.list"
+	MixinUserGet          = "user.get"
 
 	MixinDatabaseCreate = "database.create"
 	MixinDatabaseDelete = "database.delete"
+	MixinDatabaseList   = "database.list"
 
 	MixinBackupCreate = "backup.create"
 	MixinBackupDelete = "backup.delete"
+	MixinBackupList   = "backup.list"
 
 	MixinFileRead       = "file.read"
 	MixinFileWrite      = "file.write"
@@ -36,30 +42,44 @@ const (
 	MixinFileCopy       = "file.copy"
 	MixinFileCompress   = "file.compress"
 	MixinFileDecompress = "file.decompress"
+	MixinFileList       = "file.list"
 
 	MixinNodeCreate = "node.create"
 	MixinNodeDelete = "node.delete"
+	MixinNodeList   = "node.list"
+	MixinNodeGet    = "node.get"
 
 	MixinPackageCreate = "package.create"
 	MixinPackageUpdate = "package.update"
 	MixinPackageDelete = "package.delete"
+	MixinPackageList   = "package.list"
+	MixinPackageGet    = "package.get"
 
 	MixinSubuserAdd    = "subuser.add"
 	MixinSubuserUpdate = "subuser.update"
 	MixinSubuserRemove = "subuser.remove"
+	MixinSubuserList   = "subuser.list"
 
 	MixinIPBanCreate = "ipban.create"
 	MixinIPBanDelete = "ipban.delete"
+	MixinIPBanList   = "ipban.list"
 
 	MixinAllocationAdd        = "allocation.add"
 	MixinAllocationDelete     = "allocation.delete"
 	MixinAllocationSetPrimary = "allocation.set_primary"
+	MixinAllocationList       = "allocation.list"
 
 	MixinDBHostCreate = "dbhost.create"
 	MixinDBHostUpdate = "dbhost.update"
 	MixinDBHostDelete = "dbhost.delete"
+	MixinDBHostList   = "dbhost.list"
 
 	MixinSettingsUpdate = "settings.update"
+	MixinSettingsGet    = "settings.get"
+
+	MixinActivityLogList = "activitylog.list"
+
+	MixinConsoleCommand = "console.command"
 )
 
 type MixinContext struct {

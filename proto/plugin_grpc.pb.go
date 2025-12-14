@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             v3.21.12
-// source: proto/plugin.proto
+// source: plugin.proto
 
 package proto
 
@@ -307,7 +307,7 @@ var PluginService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/plugin.proto",
+	Metadata: "plugin.proto",
 }
 
 const (
@@ -391,6 +391,9 @@ const (
 	PanelService_DeleteKV_FullMethodName                 = "/plugins.PanelService/DeleteKV"
 	PanelService_QueryDB_FullMethodName                  = "/plugins.PanelService/QueryDB"
 	PanelService_BroadcastEvent_FullMethodName           = "/plugins.PanelService/BroadcastEvent"
+	PanelService_SendNotification_FullMethodName         = "/plugins.PanelService/SendNotification"
+	PanelService_HTTPRequest_FullMethodName              = "/plugins.PanelService/HTTPRequest"
+	PanelService_CallPlugin_FullMethodName               = "/plugins.PanelService/CallPlugin"
 )
 
 // PanelServiceClient is the client API for PanelService service.
@@ -494,6 +497,11 @@ type PanelServiceClient interface {
 	DeleteKV(ctx context.Context, in *KVRequest, opts ...grpc.CallOption) (*Empty, error)
 	QueryDB(ctx context.Context, in *QueryDBRequest, opts ...grpc.CallOption) (*QueryDBResponse, error)
 	BroadcastEvent(ctx context.Context, in *BroadcastEventRequest, opts ...grpc.CallOption) (*Empty, error)
+	SendNotification(ctx context.Context, in *NotificationRequest, opts ...grpc.CallOption) (*Empty, error)
+	// HTTP Client (for external APIs)
+	HTTPRequest(ctx context.Context, in *PluginHTTPRequest, opts ...grpc.CallOption) (*PluginHTTPResponse, error)
+	// Inter-plugin communication
+	CallPlugin(ctx context.Context, in *CallPluginRequest, opts ...grpc.CallOption) (*CallPluginResponse, error)
 }
 
 type panelServiceClient struct {
@@ -1304,6 +1312,36 @@ func (c *panelServiceClient) BroadcastEvent(ctx context.Context, in *BroadcastEv
 	return out, nil
 }
 
+func (c *panelServiceClient) SendNotification(ctx context.Context, in *NotificationRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, PanelService_SendNotification_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *panelServiceClient) HTTPRequest(ctx context.Context, in *PluginHTTPRequest, opts ...grpc.CallOption) (*PluginHTTPResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PluginHTTPResponse)
+	err := c.cc.Invoke(ctx, PanelService_HTTPRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *panelServiceClient) CallPlugin(ctx context.Context, in *CallPluginRequest, opts ...grpc.CallOption) (*CallPluginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CallPluginResponse)
+	err := c.cc.Invoke(ctx, PanelService_CallPlugin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PanelServiceServer is the server API for PanelService service.
 // All implementations must embed UnimplementedPanelServiceServer
 // for forward compatibility.
@@ -1405,6 +1443,11 @@ type PanelServiceServer interface {
 	DeleteKV(context.Context, *KVRequest) (*Empty, error)
 	QueryDB(context.Context, *QueryDBRequest) (*QueryDBResponse, error)
 	BroadcastEvent(context.Context, *BroadcastEventRequest) (*Empty, error)
+	SendNotification(context.Context, *NotificationRequest) (*Empty, error)
+	// HTTP Client (for external APIs)
+	HTTPRequest(context.Context, *PluginHTTPRequest) (*PluginHTTPResponse, error)
+	// Inter-plugin communication
+	CallPlugin(context.Context, *CallPluginRequest) (*CallPluginResponse, error)
 	mustEmbedUnimplementedPanelServiceServer()
 }
 
@@ -1654,6 +1697,15 @@ func (UnimplementedPanelServiceServer) QueryDB(context.Context, *QueryDBRequest)
 }
 func (UnimplementedPanelServiceServer) BroadcastEvent(context.Context, *BroadcastEventRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method BroadcastEvent not implemented")
+}
+func (UnimplementedPanelServiceServer) SendNotification(context.Context, *NotificationRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendNotification not implemented")
+}
+func (UnimplementedPanelServiceServer) HTTPRequest(context.Context, *PluginHTTPRequest) (*PluginHTTPResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method HTTPRequest not implemented")
+}
+func (UnimplementedPanelServiceServer) CallPlugin(context.Context, *CallPluginRequest) (*CallPluginResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CallPlugin not implemented")
 }
 func (UnimplementedPanelServiceServer) mustEmbedUnimplementedPanelServiceServer() {}
 func (UnimplementedPanelServiceServer) testEmbeddedByValue()                      {}
@@ -3116,6 +3168,60 @@ func _PanelService_BroadcastEvent_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PanelService_SendNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NotificationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PanelServiceServer).SendNotification(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PanelService_SendNotification_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PanelServiceServer).SendNotification(ctx, req.(*NotificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PanelService_HTTPRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PluginHTTPRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PanelServiceServer).HTTPRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PanelService_HTTPRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PanelServiceServer).HTTPRequest(ctx, req.(*PluginHTTPRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PanelService_CallPlugin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CallPluginRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PanelServiceServer).CallPlugin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PanelService_CallPlugin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PanelServiceServer).CallPlugin(ctx, req.(*CallPluginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PanelService_ServiceDesc is the grpc.ServiceDesc for PanelService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -3443,7 +3549,19 @@ var PanelService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "BroadcastEvent",
 			Handler:    _PanelService_BroadcastEvent_Handler,
 		},
+		{
+			MethodName: "SendNotification",
+			Handler:    _PanelService_SendNotification_Handler,
+		},
+		{
+			MethodName: "HTTPRequest",
+			Handler:    _PanelService_HTTPRequest_Handler,
+		},
+		{
+			MethodName: "CallPlugin",
+			Handler:    _PanelService_CallPlugin_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/plugin.proto",
+	Metadata: "plugin.proto",
 }

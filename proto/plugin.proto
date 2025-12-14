@@ -3,6 +3,8 @@ syntax = "proto3";
 package plugins;
 
 option go_package = "github.com/pizzlad/birdactyl-go-sdk/proto";
+option java_package = "io.birdactyl.sdk.proto";
+option java_multiple_files = true;
 
 service PluginService {
   rpc GetInfo(Empty) returns (PluginInfo);
@@ -127,6 +129,13 @@ service PanelService {
   rpc DeleteKV(KVRequest) returns (Empty);
   rpc QueryDB(QueryDBRequest) returns (QueryDBResponse);
   rpc BroadcastEvent(BroadcastEventRequest) returns (Empty);
+  rpc SendNotification(NotificationRequest) returns (Empty);
+
+  // HTTP Client (for external APIs)
+  rpc HTTPRequest(PluginHTTPRequest) returns (PluginHTTPResponse);
+
+  // Inter-plugin communication
+  rpc CallPlugin(CallPluginRequest) returns (CallPluginResponse);
 }
 
 // Common
@@ -401,3 +410,32 @@ message KVSetRequest { string key = 1; string value = 2; }
 message QueryDBRequest { string query = 1; repeated string args = 2; }
 message QueryDBResponse { repeated bytes rows = 1; }
 message BroadcastEventRequest { string event_type = 1; map<string, string> data = 2; }
+message NotificationRequest { string user_id = 1; string title = 2; string message = 3; string type = 4; }
+
+// HTTP Client
+message PluginHTTPRequest {
+  string method = 1;
+  string url = 2;
+  map<string, string> headers = 3;
+  bytes body = 4;
+  int32 timeout_seconds = 5;
+}
+
+message PluginHTTPResponse {
+  int32 status = 1;
+  map<string, string> headers = 2;
+  bytes body = 3;
+  string error = 4;
+}
+
+// Inter-plugin communication
+message CallPluginRequest {
+  string plugin_id = 1;
+  string method = 2;
+  bytes data = 3;
+}
+
+message CallPluginResponse {
+  bytes data = 1;
+  string error = 2;
+}

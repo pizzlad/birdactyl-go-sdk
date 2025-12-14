@@ -3,6 +3,7 @@ package birdactyl
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	pb "github.com/pizzlad/birdactyl-go-sdk/proto"
 	"google.golang.org/grpc/metadata"
@@ -700,4 +701,55 @@ func (a *API) QueryDB(query string, args ...string) ([]map[string]interface{}, e
 
 func (a *API) BroadcastEvent(eventType string, data map[string]string) {
 	a.panel.BroadcastEvent(a.ctx(), &pb.BroadcastEventRequest{EventType: eventType, Data: data})
+}
+
+type HTTPResponse struct {
+	Status  int
+	Headers map[string]string
+	Body    []byte
+	Error   string
+}
+
+func (a *API) HTTP(method, url string, headers map[string]string, body []byte) *HTTPResponse {
+	r, err := a.panel.HTTPRequest(a.ctx(), &pb.PluginHTTPRequest{
+		Method:  method,
+		Url:     url,
+		Headers: headers,
+		Body:    body,
+	})
+	if err != nil {
+		return &HTTPResponse{Error: err.Error()}
+	}
+	return &HTTPResponse{Status: int(r.Status), Headers: r.Headers, Body: r.Body, Error: r.Error}
+}
+
+func (a *API) HTTPGet(url string, headers map[string]string) *HTTPResponse {
+	return a.HTTP("GET", url, headers, nil)
+}
+
+func (a *API) HTTPPost(url string, headers map[string]string, body []byte) *HTTPResponse {
+	return a.HTTP("POST", url, headers, body)
+}
+
+func (a *API) HTTPPut(url string, headers map[string]string, body []byte) *HTTPResponse {
+	return a.HTTP("PUT", url, headers, body)
+}
+
+func (a *API) HTTPDelete(url string, headers map[string]string) *HTTPResponse {
+	return a.HTTP("DELETE", url, headers, nil)
+}
+
+func (a *API) CallPlugin(pluginID, method string, data []byte) ([]byte, error) {
+	r, err := a.panel.CallPlugin(a.ctx(), &pb.CallPluginRequest{
+		PluginId: pluginID,
+		Method:   method,
+		Data:     data,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if r.Error != "" {
+		return nil, fmt.Errorf(r.Error)
+	}
+	return r.Data, nil
 }
