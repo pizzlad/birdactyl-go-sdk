@@ -17,6 +17,10 @@ func (a *API) ctx() context.Context {
 	return metadata.AppendToOutgoingContext(context.Background(), "x-plugin-id", a.pluginID)
 }
 
+func (a *API) Log(level, message string) {
+	a.panel.Log(a.ctx(), &pb.LogRequest{Level: level, Message: message})
+}
+
 type Server struct {
 	ID        string
 	Name      string
