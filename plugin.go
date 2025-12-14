@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	pb "github.com/pizzlad/birdactyl-go-sdk/internal/proto"
+	pb "github.com/pizzlad/birdactyl-go-sdk/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"

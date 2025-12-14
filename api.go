@@ -3,7 +3,7 @@ package birdactyl
 import (
 	"context"
 
-	pb "github.com/pizzlad/birdactyl-go-sdk/internal/proto"
+	pb "github.com/pizzlad/birdactyl-go-sdk/proto"
 	"google.golang.org/grpc/metadata"
 )
 

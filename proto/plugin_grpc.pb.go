@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             v3.21.12
-// source: internal/proto/plugin.proto
+// source: proto/plugin.proto
 
 package proto
 
@@ -269,7 +269,7 @@ var PluginService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "internal/proto/plugin.proto",
+	Metadata: "proto/plugin.proto",
 }
 
 const (
@@ -3289,5 +3289,5 @@ var PanelService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "internal/proto/plugin.proto",
+	Metadata: "proto/plugin.proto",
 }

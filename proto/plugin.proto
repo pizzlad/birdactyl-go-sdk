@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package plugins;
 
-option go_package = "github.com/pizzlad/birdactyl-go-sdk/internal/proto";
+option go_package = "github.com/pizzlad/birdactyl-go-sdk/proto";
 
 service PluginService {
   rpc GetInfo(Empty) returns (PluginInfo);
