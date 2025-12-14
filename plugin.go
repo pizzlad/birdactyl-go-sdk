@@ -17,18 +17,38 @@ import (
 )
 
 type Plugin struct {
-	id          string
-	name        string
-	version     string
-	events      map[string]EventHandler
-	routes      map[string]RouteHandler
-	schedule    map[string]ScheduleHandler
-	panel       pb.PanelServiceClient
-	conn        *grpc.ClientConn
-	api         *API
-	dataDir     string
-	useDataDir  bool
-	onStart     func()
+	id         string
+	name       string
+	version    string
+	events     map[string]EventHandler
+	routes     map[string]RouteHandler
+	schedule   map[string]ScheduleHandler
+	mixins     []MixinRegistration
+	panel      pb.PanelServiceClient
+	conn       *grpc.ClientConn
+	api        *API
+	dataDir    string
+	useDataDir bool
+	onStart    func()
+	ui         *UIConfig
+}
+
+type UIConfig struct {
+	Icon    string
+	Sidebar *SidebarConfig
+	Pages   []PageConfig
+}
+
+type SidebarConfig struct {
+	Label   string
+	Icon    string
+	Section string
+	Order   int
+}
+
+type PageConfig struct {
+	Path  string
+	Label string
 }
 
 type EventHandler func(Event) EventResult
@@ -43,6 +63,7 @@ func New(id, version string) *Plugin {
 		events:   make(map[string]EventHandler),
 		routes:   make(map[string]RouteHandler),
 		schedule: make(map[string]ScheduleHandler),
+		mixins:   make([]MixinRegistration, 0),
 	}
 }
 
@@ -53,6 +74,11 @@ func (p *Plugin) SetName(name string) *Plugin {
 
 func (p *Plugin) UseDataDir() *Plugin {
 	p.useDataDir = true
+	return p
+}
+
+func (p *Plugin) UI(cfg UIConfig) *Plugin {
+	p.ui = &cfg
 	return p
 }
 
@@ -73,6 +99,19 @@ func (p *Plugin) Route(method, path string, handler RouteHandler) *Plugin {
 
 func (p *Plugin) Schedule(id, cron string, handler ScheduleHandler) *Plugin {
 	p.schedule[id+":"+cron] = handler
+	return p
+}
+
+func (p *Plugin) Mixin(target string, handler MixinHandler) *Plugin {
+	return p.MixinWithPriority(target, 0, handler)
+}
+
+func (p *Plugin) MixinWithPriority(target string, priority int, handler MixinHandler) *Plugin {
+	p.mixins = append(p.mixins, MixinRegistration{
+		Target:   target,
+		Priority: priority,
+		Handler:  handler,
+	})
 	return p
 }
 
@@ -184,14 +223,37 @@ func (s *pluginServer) GetInfo(ctx context.Context, req *pb.Empty) (*pb.PluginIn
 		schedules = append(schedules, &pb.ScheduleInfo{Id: id, Cron: cron})
 	}
 
-	return &pb.PluginInfo{
+	mixins := make([]*pb.MixinInfo, 0, len(s.plugin.mixins))
+	for _, m := range s.plugin.mixins {
+		mixins = append(mixins, &pb.MixinInfo{Target: m.Target, Priority: int32(m.Priority)})
+	}
+
+	info := &pb.PluginInfo{
 		Id:        s.plugin.id,
 		Name:      s.plugin.name,
 		Version:   s.plugin.version,
 		Events:    events,
 		Routes:    routes,
 		Schedules: schedules,
-	}, nil
+		Mixins:    mixins,
+	}
+
+	if s.plugin.ui != nil {
+		info.Ui = &pb.PluginUIInfo{Icon: s.plugin.ui.Icon}
+		if s.plugin.ui.Sidebar != nil {
+			info.Ui.Sidebar = &pb.PluginSidebarInfo{
+				Label:   s.plugin.ui.Sidebar.Label,
+				Icon:    s.plugin.ui.Sidebar.Icon,
+				Section: s.plugin.ui.Sidebar.Section,
+				Order:   int32(s.plugin.ui.Sidebar.Order),
+			}
+		}
+		for _, p := range s.plugin.ui.Pages {
+			info.Ui.Pages = append(info.Ui.Pages, &pb.PluginPageInfo{Path: p.Path, Label: p.Label})
+		}
+	}
+
+	return info, nil
 }
 
 func (s *pluginServer) OnEvent(ctx context.Context, ev *pb.Event) (*pb.EventResponse, error) {
@@ -247,6 +309,53 @@ func (s *pluginServer) OnSchedule(ctx context.Context, req *pb.ScheduleRequest) 
 		}
 	}
 	return &pb.Empty{}, nil
+}
+
+func (s *pluginServer) OnMixin(ctx context.Context, req *pb.MixinRequest) (*pb.MixinResponse, error) {
+	var handler MixinHandler
+	for _, m := range s.plugin.mixins {
+		if m.Target == req.Target {
+			handler = m.Handler
+			break
+		}
+	}
+
+	if handler == nil {
+		return &pb.MixinResponse{Action: pb.MixinResponse_NEXT}, nil
+	}
+
+	var input map[string]interface{}
+	json.Unmarshal(req.Input, &input)
+
+	var chainData map[string]interface{}
+	if len(req.ChainData) > 0 {
+		json.Unmarshal(req.ChainData, &chainData)
+	}
+
+	mctx := &MixinContext{
+		Target:    req.Target,
+		RequestID: req.RequestId,
+		input:     input,
+		chainData: chainData,
+	}
+
+	result := handler(mctx)
+
+	resp := &pb.MixinResponse{
+		Action: pb.MixinResponse_Action(result.action),
+	}
+
+	if result.output != nil {
+		resp.Output, _ = json.Marshal(result.output)
+	}
+	if result.err != "" {
+		resp.Error = result.err
+	}
+	if result.modifiedInput != nil {
+		resp.ModifiedInput, _ = json.Marshal(result.modifiedInput)
+	}
+
+	return resp, nil
 }
 
 func (s *pluginServer) Shutdown(ctx context.Context, req *pb.Empty) (*pb.Empty, error) {

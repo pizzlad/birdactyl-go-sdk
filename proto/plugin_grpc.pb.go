@@ -23,6 +23,7 @@ const (
 	PluginService_OnEvent_FullMethodName    = "/plugins.PluginService/OnEvent"
 	PluginService_OnHTTP_FullMethodName     = "/plugins.PluginService/OnHTTP"
 	PluginService_OnSchedule_FullMethodName = "/plugins.PluginService/OnSchedule"
+	PluginService_OnMixin_FullMethodName    = "/plugins.PluginService/OnMixin"
 	PluginService_Shutdown_FullMethodName   = "/plugins.PluginService/Shutdown"
 )
 
@@ -34,6 +35,7 @@ type PluginServiceClient interface {
 	OnEvent(ctx context.Context, in *Event, opts ...grpc.CallOption) (*EventResponse, error)
 	OnHTTP(ctx context.Context, in *HTTPRequest, opts ...grpc.CallOption) (*HTTPResponse, error)
 	OnSchedule(ctx context.Context, in *ScheduleRequest, opts ...grpc.CallOption) (*Empty, error)
+	OnMixin(ctx context.Context, in *MixinRequest, opts ...grpc.CallOption) (*MixinResponse, error)
 	Shutdown(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
 }
 
@@ -85,6 +87,16 @@ func (c *pluginServiceClient) OnSchedule(ctx context.Context, in *ScheduleReques
 	return out, nil
 }
 
+func (c *pluginServiceClient) OnMixin(ctx context.Context, in *MixinRequest, opts ...grpc.CallOption) (*MixinResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MixinResponse)
+	err := c.cc.Invoke(ctx, PluginService_OnMixin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *pluginServiceClient) Shutdown(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Empty)
@@ -103,6 +115,7 @@ type PluginServiceServer interface {
 	OnEvent(context.Context, *Event) (*EventResponse, error)
 	OnHTTP(context.Context, *HTTPRequest) (*HTTPResponse, error)
 	OnSchedule(context.Context, *ScheduleRequest) (*Empty, error)
+	OnMixin(context.Context, *MixinRequest) (*MixinResponse, error)
 	Shutdown(context.Context, *Empty) (*Empty, error)
 	mustEmbedUnimplementedPluginServiceServer()
 }
@@ -125,6 +138,9 @@ func (UnimplementedPluginServiceServer) OnHTTP(context.Context, *HTTPRequest) (*
 }
 func (UnimplementedPluginServiceServer) OnSchedule(context.Context, *ScheduleRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method OnSchedule not implemented")
+}
+func (UnimplementedPluginServiceServer) OnMixin(context.Context, *MixinRequest) (*MixinResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method OnMixin not implemented")
 }
 func (UnimplementedPluginServiceServer) Shutdown(context.Context, *Empty) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method Shutdown not implemented")
@@ -222,6 +238,24 @@ func _PluginService_OnSchedule_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PluginService_OnMixin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MixinRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PluginServiceServer).OnMixin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_OnMixin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PluginServiceServer).OnMixin(ctx, req.(*MixinRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PluginService_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Empty)
 	if err := dec(in); err != nil {
@@ -264,6 +298,10 @@ var PluginService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PluginService_OnSchedule_Handler,
 		},
 		{
+			MethodName: "OnMixin",
+			Handler:    _PluginService_OnMixin_Handler,
+		},
+		{
 			MethodName: "Shutdown",
 			Handler:    _PluginService_Shutdown_Handler,
 		},
@@ -286,6 +324,9 @@ const (
 	PanelService_KillServer_FullMethodName               = "/plugins.PanelService/KillServer"
 	PanelService_ReinstallServer_FullMethodName          = "/plugins.PanelService/ReinstallServer"
 	PanelService_TransferServer_FullMethodName           = "/plugins.PanelService/TransferServer"
+	PanelService_GetConsoleLog_FullMethodName            = "/plugins.PanelService/GetConsoleLog"
+	PanelService_SendCommand_FullMethodName              = "/plugins.PanelService/SendCommand"
+	PanelService_GetServerStats_FullMethodName           = "/plugins.PanelService/GetServerStats"
 	PanelService_AddAllocation_FullMethodName            = "/plugins.PanelService/AddAllocation"
 	PanelService_DeleteAllocation_FullMethodName         = "/plugins.PanelService/DeleteAllocation"
 	PanelService_SetPrimaryAllocation_FullMethodName     = "/plugins.PanelService/SetPrimaryAllocation"
@@ -370,6 +411,11 @@ type PanelServiceClient interface {
 	KillServer(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error)
 	ReinstallServer(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error)
 	TransferServer(ctx context.Context, in *TransferServerRequest, opts ...grpc.CallOption) (*Empty, error)
+	// Server Console
+	GetConsoleLog(ctx context.Context, in *ConsoleLogRequest, opts ...grpc.CallOption) (*ConsoleLogResponse, error)
+	SendCommand(ctx context.Context, in *SendCommandRequest, opts ...grpc.CallOption) (*Empty, error)
+	// Server Stats
+	GetServerStats(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*ServerStats, error)
 	// Server Allocations
 	AddAllocation(ctx context.Context, in *AllocationRequest, opts ...grpc.CallOption) (*Empty, error)
 	DeleteAllocation(ctx context.Context, in *AllocationRequest, opts ...grpc.CallOption) (*Empty, error)
@@ -582,6 +628,36 @@ func (c *panelServiceClient) TransferServer(ctx context.Context, in *TransferSer
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, PanelService_TransferServer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *panelServiceClient) GetConsoleLog(ctx context.Context, in *ConsoleLogRequest, opts ...grpc.CallOption) (*ConsoleLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConsoleLogResponse)
+	err := c.cc.Invoke(ctx, PanelService_GetConsoleLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *panelServiceClient) SendCommand(ctx context.Context, in *SendCommandRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, PanelService_SendCommand_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *panelServiceClient) GetServerStats(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*ServerStats, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ServerStats)
+	err := c.cc.Invoke(ctx, PanelService_GetServerStats_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1246,6 +1322,11 @@ type PanelServiceServer interface {
 	KillServer(context.Context, *IDRequest) (*Empty, error)
 	ReinstallServer(context.Context, *IDRequest) (*Empty, error)
 	TransferServer(context.Context, *TransferServerRequest) (*Empty, error)
+	// Server Console
+	GetConsoleLog(context.Context, *ConsoleLogRequest) (*ConsoleLogResponse, error)
+	SendCommand(context.Context, *SendCommandRequest) (*Empty, error)
+	// Server Stats
+	GetServerStats(context.Context, *IDRequest) (*ServerStats, error)
 	// Server Allocations
 	AddAllocation(context.Context, *AllocationRequest) (*Empty, error)
 	DeleteAllocation(context.Context, *AllocationRequest) (*Empty, error)
@@ -1372,6 +1453,15 @@ func (UnimplementedPanelServiceServer) ReinstallServer(context.Context, *IDReque
 }
 func (UnimplementedPanelServiceServer) TransferServer(context.Context, *TransferServerRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method TransferServer not implemented")
+}
+func (UnimplementedPanelServiceServer) GetConsoleLog(context.Context, *ConsoleLogRequest) (*ConsoleLogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetConsoleLog not implemented")
+}
+func (UnimplementedPanelServiceServer) SendCommand(context.Context, *SendCommandRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendCommand not implemented")
+}
+func (UnimplementedPanelServiceServer) GetServerStats(context.Context, *IDRequest) (*ServerStats, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetServerStats not implemented")
 }
 func (UnimplementedPanelServiceServer) AddAllocation(context.Context, *AllocationRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method AddAllocation not implemented")
@@ -1816,6 +1906,60 @@ func _PanelService_TransferServer_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PanelServiceServer).TransferServer(ctx, req.(*TransferServerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PanelService_GetConsoleLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConsoleLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PanelServiceServer).GetConsoleLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PanelService_GetConsoleLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PanelServiceServer).GetConsoleLog(ctx, req.(*ConsoleLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PanelService_SendCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendCommandRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PanelServiceServer).SendCommand(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PanelService_SendCommand_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PanelServiceServer).SendCommand(ctx, req.(*SendCommandRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PanelService_GetServerStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PanelServiceServer).GetServerStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PanelService_GetServerStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PanelServiceServer).GetServerStats(ctx, req.(*IDRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3030,6 +3174,18 @@ var PanelService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TransferServer",
 			Handler:    _PanelService_TransferServer_Handler,
+		},
+		{
+			MethodName: "GetConsoleLog",
+			Handler:    _PanelService_GetConsoleLog_Handler,
+		},
+		{
+			MethodName: "SendCommand",
+			Handler:    _PanelService_SendCommand_Handler,
+		},
+		{
+			MethodName: "GetServerStats",
+			Handler:    _PanelService_GetServerStats_Handler,
 		},
 		{
 			MethodName: "AddAllocation",

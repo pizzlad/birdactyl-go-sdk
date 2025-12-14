@@ -148,6 +148,27 @@ func (a *API) CreateServer(name, userID, nodeID, packageID string, memory, cpu, 
 	return &Server{ID: r.Id, Name: r.Name, OwnerID: r.UserId, NodeID: r.NodeId}, nil
 }
 
+func (a *API) UpdateServer(id string, name *string, memory, cpu, disk *int32) (*Server, error) {
+	req := &pb.UpdateServerRequest{Id: id}
+	if name != nil {
+		req.Name = *name
+	}
+	if memory != nil {
+		req.Memory = *memory
+	}
+	if cpu != nil {
+		req.Cpu = *cpu
+	}
+	if disk != nil {
+		req.Disk = *disk
+	}
+	r, err := a.panel.UpdateServer(a.ctx(), req)
+	if err != nil {
+		return nil, err
+	}
+	return &Server{ID: r.Id, Name: r.Name, OwnerID: r.UserId, NodeID: r.NodeId, Status: r.Status, Suspended: r.Suspended, Memory: r.Memory, Disk: r.Disk, CPU: r.Cpu}, nil
+}
+
 func (a *API) DeleteServer(id string) error {
 	_, err := a.panel.DeleteServer(a.ctx(), &pb.IDRequest{Id: id})
 	return err
@@ -193,6 +214,67 @@ func (a *API) TransferServer(id, targetNodeID string) error {
 	return err
 }
 
+func (a *API) GetConsoleLog(serverID string, lines int32) ([]string, error) {
+	r, err := a.panel.GetConsoleLog(a.ctx(), &pb.ConsoleLogRequest{ServerId: serverID, Lines: lines})
+	if err != nil {
+		return nil, err
+	}
+	return r.Lines, nil
+}
+
+func (a *API) SendCommand(serverID, command string) error {
+	_, err := a.panel.SendCommand(a.ctx(), &pb.SendCommandRequest{ServerId: serverID, Command: command})
+	return err
+}
+
+type ServerStats struct {
+	MemoryBytes int64
+	MemoryLimit int64
+	CPUPercent  float64
+	DiskBytes   int64
+	NetworkRx   int64
+	NetworkTx   int64
+	State       string
+}
+
+func (a *API) GetServerStats(serverID string) (*ServerStats, error) {
+	r, err := a.panel.GetServerStats(a.ctx(), &pb.IDRequest{Id: serverID})
+	if err != nil {
+		return nil, err
+	}
+	return &ServerStats{MemoryBytes: r.MemoryBytes, MemoryLimit: r.MemoryLimit, CPUPercent: r.CpuPercent, DiskBytes: r.DiskBytes, NetworkRx: r.NetworkRx, NetworkTx: r.NetworkTx, State: r.State}, nil
+}
+
+func (a *API) AddAllocation(serverID string, port int32) error {
+	_, err := a.panel.AddAllocation(a.ctx(), &pb.AllocationRequest{ServerId: serverID, Port: port})
+	return err
+}
+
+func (a *API) DeleteAllocation(serverID string, port int32) error {
+	_, err := a.panel.DeleteAllocation(a.ctx(), &pb.AllocationRequest{ServerId: serverID, Port: port})
+	return err
+}
+
+func (a *API) SetPrimaryAllocation(serverID string, port int32) error {
+	_, err := a.panel.SetPrimaryAllocation(a.ctx(), &pb.AllocationRequest{ServerId: serverID, Port: port})
+	return err
+}
+
+func (a *API) UpdateServerVariables(serverID string, variables map[string]string) error {
+	_, err := a.panel.UpdateServerVariables(a.ctx(), &pb.UpdateVariablesRequest{ServerId: serverID, Variables: variables})
+	return err
+}
+
+func (a *API) CompressFiles(serverID string, paths []string, destination string) error {
+	_, err := a.panel.CompressFiles(a.ctx(), &pb.CompressRequest{ServerId: serverID, Paths: paths, Destination: destination})
+	return err
+}
+
+func (a *API) DecompressFile(serverID, path string) error {
+	_, err := a.panel.DecompressFile(a.ctx(), &pb.FilePathRequest{ServerId: serverID, Path: path})
+	return err
+}
+
 func (a *API) GetUser(id string) (*User, error) {
 	r, err := a.panel.GetUser(a.ctx(), &pb.IDRequest{Id: id})
 	if err != nil {
@@ -232,6 +314,21 @@ func (a *API) CreateUser(email, username, password string) (*User, error) {
 		return nil, err
 	}
 	return &User{ID: r.Id, Username: r.Username, Email: r.Email}, nil
+}
+
+func (a *API) UpdateUser(id string, username, email *string) (*User, error) {
+	req := &pb.UpdateUserRequest{Id: id}
+	if username != nil {
+		req.Username = *username
+	}
+	if email != nil {
+		req.Email = *email
+	}
+	r, err := a.panel.UpdateUser(a.ctx(), req)
+	if err != nil {
+		return nil, err
+	}
+	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned}, nil
 }
 
 func (a *API) DeleteUser(id string) error {
@@ -437,6 +534,42 @@ func (a *API) GetPackage(id string) (*Package, error) {
 	return &Package{ID: r.Id, Name: r.Name, Description: r.Description, DockerImage: r.DockerImage, Memory: r.DefaultMemory, CPU: r.DefaultCpu, Disk: r.DefaultDisk}, nil
 }
 
+func (a *API) CreatePackage(name, description, dockerImage, startupCmd, stopCmd, configFiles string, memory, cpu, disk int32, isPublic bool) (*Package, error) {
+	r, err := a.panel.CreatePackage(a.ctx(), &pb.CreatePackageRequest{
+		Name: name, Description: description, DockerImage: dockerImage,
+		StartupCommand: startupCmd, StopCommand: stopCmd, ConfigFiles: configFiles,
+		DefaultMemory: memory, DefaultCpu: cpu, DefaultDisk: disk, IsPublic: isPublic,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &Package{ID: r.Id, Name: r.Name, Description: r.Description, DockerImage: r.DockerImage, Memory: r.DefaultMemory, CPU: r.DefaultCpu, Disk: r.DefaultDisk}, nil
+}
+
+func (a *API) UpdatePackage(id string, name, description *string, memory, cpu, disk *int32) (*Package, error) {
+	req := &pb.UpdatePackageRequest{Id: id}
+	if name != nil {
+		req.Name = *name
+	}
+	if description != nil {
+		req.Description = *description
+	}
+	if memory != nil {
+		req.DefaultMemory = *memory
+	}
+	if cpu != nil {
+		req.DefaultCpu = *cpu
+	}
+	if disk != nil {
+		req.DefaultDisk = *disk
+	}
+	r, err := a.panel.UpdatePackage(a.ctx(), req)
+	if err != nil {
+		return nil, err
+	}
+	return &Package{ID: r.Id, Name: r.Name, Description: r.Description, DockerImage: r.DockerImage, Memory: r.DefaultMemory, CPU: r.DefaultCpu, Disk: r.DefaultDisk}, nil
+}
+
 func (a *API) DeletePackage(id string) error {
 	_, err := a.panel.DeletePackage(a.ctx(), &pb.IDRequest{Id: id})
 	return err
@@ -479,6 +612,11 @@ func (a *API) AddSubuser(serverID, email string, permissions []string) (*Subuser
 		return nil, err
 	}
 	return &Subuser{ID: r.Id, UserID: r.UserId, Username: r.Username, Permissions: r.Permissions}, nil
+}
+
+func (a *API) UpdateSubuser(serverID, subuserID string, permissions []string) error {
+	_, err := a.panel.UpdateSubuser(a.ctx(), &pb.UpdateSubuserRequest{ServerId: serverID, SubuserId: subuserID, Permissions: permissions})
+	return err
 }
 
 func (a *API) RemoveSubuser(serverID, subuserID string) error {
