@@ -30,25 +30,7 @@ type Plugin struct {
 	dataDir    string
 	useDataDir bool
 	onStart    func()
-	ui         *UIConfig
-}
-
-type UIConfig struct {
-	Icon    string
-	Sidebar *SidebarConfig
-	Pages   []PageConfig
-}
-
-type SidebarConfig struct {
-	Label   string
-	Icon    string
-	Section string
-	Order   int
-}
-
-type PageConfig struct {
-	Path  string
-	Label string
+	readyCh    chan struct{}
 }
 
 type EventHandler func(Event) EventResult
@@ -64,6 +46,7 @@ func New(id, version string) *Plugin {
 		routes:   make(map[string]RouteHandler),
 		schedule: make(map[string]ScheduleHandler),
 		mixins:   make([]MixinRegistration, 0),
+		readyCh:  make(chan struct{}),
 	}
 }
 
@@ -74,11 +57,6 @@ func (p *Plugin) SetName(name string) *Plugin {
 
 func (p *Plugin) UseDataDir() *Plugin {
 	p.useDataDir = true
-	return p
-}
-
-func (p *Plugin) UI(cfg UIConfig) *Plugin {
-	p.ui = &cfg
 	return p
 }
 
@@ -182,12 +160,6 @@ func (p *Plugin) Start(panelAddr string, defaultPort int) error {
 	p.panel = pb.NewPanelServiceClient(conn)
 	p.api = &API{panel: p.panel, pluginID: p.id}
 
-	if p.onStart != nil {
-		p.onStart()
-	}
-
-	p.Log(p.name + " v" + p.version + " started")
-
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
@@ -197,6 +169,15 @@ func (p *Plugin) Start(panelAddr string, defaultPort int) error {
 	pb.RegisterPluginServiceServer(s, &pluginServer{plugin: p})
 
 	log.Printf("[%s] v%s listening on port %d", p.id, p.version, port)
+
+	go func() {
+		<-p.readyCh
+		if p.onStart != nil {
+			p.onStart()
+		}
+		p.Log(p.name + " v" + p.version + " started")
+	}()
+
 	return s.Serve(lis)
 }
 
@@ -238,19 +219,10 @@ func (s *pluginServer) GetInfo(ctx context.Context, req *pb.Empty) (*pb.PluginIn
 		Mixins:    mixins,
 	}
 
-	if s.plugin.ui != nil {
-		info.Ui = &pb.PluginUIInfo{Icon: s.plugin.ui.Icon}
-		if s.plugin.ui.Sidebar != nil {
-			info.Ui.Sidebar = &pb.PluginSidebarInfo{
-				Label:   s.plugin.ui.Sidebar.Label,
-				Icon:    s.plugin.ui.Sidebar.Icon,
-				Section: s.plugin.ui.Sidebar.Section,
-				Order:   int32(s.plugin.ui.Sidebar.Order),
-			}
-		}
-		for _, p := range s.plugin.ui.Pages {
-			info.Ui.Pages = append(info.Ui.Pages, &pb.PluginPageInfo{Path: p.Path, Label: p.Label})
-		}
+	select {
+	case <-s.plugin.readyCh:
+	default:
+		close(s.plugin.readyCh)
 	}
 
 	return info, nil
