@@ -1,0 +1,347 @@
+syntax = "proto3";
+
+package plugins;
+
+option go_package = "github.com/pizzlad/birdactyl-go-sdk/internal/proto";
+
+service PluginService {
+  rpc GetInfo(Empty) returns (PluginInfo);
+  rpc OnEvent(Event) returns (EventResponse);
+  rpc OnHTTP(HTTPRequest) returns (HTTPResponse);
+  rpc OnSchedule(ScheduleRequest) returns (Empty);
+  rpc Shutdown(Empty) returns (Empty);
+}
+
+service PanelService {
+  // Server
+  rpc GetServer(IDRequest) returns (Server);
+  rpc ListServers(ListServersRequest) returns (ListServersResponse);
+  rpc CreateServer(CreateServerRequest) returns (Server);
+  rpc DeleteServer(IDRequest) returns (Empty);
+  rpc UpdateServer(UpdateServerRequest) returns (Server);
+  rpc SuspendServer(IDRequest) returns (Empty);
+  rpc UnsuspendServer(IDRequest) returns (Empty);
+  rpc StartServer(IDRequest) returns (Empty);
+  rpc StopServer(IDRequest) returns (Empty);
+  rpc RestartServer(IDRequest) returns (Empty);
+  rpc KillServer(IDRequest) returns (Empty);
+  rpc ReinstallServer(IDRequest) returns (Empty);
+  rpc TransferServer(TransferServerRequest) returns (Empty);
+
+  // Server Allocations
+  rpc AddAllocation(AllocationRequest) returns (Empty);
+  rpc DeleteAllocation(AllocationRequest) returns (Empty);
+  rpc SetPrimaryAllocation(AllocationRequest) returns (Empty);
+
+  // Server Variables
+  rpc UpdateServerVariables(UpdateVariablesRequest) returns (Empty);
+
+  // User
+  rpc GetUser(IDRequest) returns (User);
+  rpc GetUserByEmail(EmailRequest) returns (User);
+  rpc GetUserByUsername(UsernameRequest) returns (User);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc CreateUser(CreateUserRequest) returns (User);
+  rpc DeleteUser(IDRequest) returns (Empty);
+  rpc UpdateUser(UpdateUserRequest) returns (User);
+  rpc BanUser(IDRequest) returns (Empty);
+  rpc UnbanUser(IDRequest) returns (Empty);
+  rpc SetAdmin(IDRequest) returns (Empty);
+  rpc RevokeAdmin(IDRequest) returns (Empty);
+  rpc SetUserResources(SetUserResourcesRequest) returns (Empty);
+  rpc ForcePasswordReset(IDRequest) returns (Empty);
+
+  // Subusers
+  rpc ListSubusers(IDRequest) returns (ListSubusersResponse);
+  rpc AddSubuser(AddSubuserRequest) returns (Subuser);
+  rpc UpdateSubuser(UpdateSubuserRequest) returns (Empty);
+  rpc RemoveSubuser(RemoveSubuserRequest) returns (Empty);
+
+  // Database
+  rpc ListDatabases(IDRequest) returns (ListDatabasesResponse);
+  rpc CreateDatabase(CreateDatabaseRequest) returns (Database);
+  rpc DeleteDatabase(IDRequest) returns (Empty);
+  rpc RotateDatabasePassword(IDRequest) returns (Database);
+
+  // Database Hosts (Admin)
+  rpc ListDatabaseHosts(Empty) returns (ListDatabaseHostsResponse);
+  rpc CreateDatabaseHost(CreateDatabaseHostRequest) returns (DatabaseHost);
+  rpc UpdateDatabaseHost(UpdateDatabaseHostRequest) returns (Empty);
+  rpc DeleteDatabaseHost(IDRequest) returns (Empty);
+
+  // Files
+  rpc ListFiles(FilePathRequest) returns (ListFilesResponse);
+  rpc ReadFile(FilePathRequest) returns (FileContent);
+  rpc WriteFile(WriteFileRequest) returns (Empty);
+  rpc DeleteFile(FilePathRequest) returns (Empty);
+  rpc CreateFolder(FilePathRequest) returns (Empty);
+  rpc MoveFile(MoveFileRequest) returns (Empty);
+  rpc CopyFile(MoveFileRequest) returns (Empty);
+  rpc CompressFiles(CompressRequest) returns (Empty);
+  rpc DecompressFile(FilePathRequest) returns (Empty);
+
+  // Backups
+  rpc ListBackups(IDRequest) returns (ListBackupsResponse);
+  rpc CreateBackup(CreateBackupRequest) returns (Empty);
+  rpc DeleteBackup(DeleteBackupRequest) returns (Empty);
+
+  // Nodes
+  rpc ListNodes(Empty) returns (ListNodesResponse);
+  rpc GetNode(IDRequest) returns (Node);
+  rpc CreateNode(CreateNodeRequest) returns (NodeWithToken);
+  rpc DeleteNode(IDRequest) returns (Empty);
+  rpc ResetNodeToken(IDRequest) returns (NodeToken);
+
+  // Packages
+  rpc ListPackages(Empty) returns (ListPackagesResponse);
+  rpc GetPackage(IDRequest) returns (Package);
+  rpc CreatePackage(CreatePackageRequest) returns (Package);
+  rpc UpdatePackage(UpdatePackageRequest) returns (Package);
+  rpc DeletePackage(IDRequest) returns (Empty);
+
+  // IP Bans
+  rpc ListIPBans(Empty) returns (ListIPBansResponse);
+  rpc CreateIPBan(CreateIPBanRequest) returns (IPBan);
+  rpc DeleteIPBan(IDRequest) returns (Empty);
+
+  // Settings
+  rpc GetSettings(Empty) returns (Settings);
+  rpc SetRegistrationEnabled(BoolRequest) returns (Empty);
+  rpc SetServerCreationEnabled(BoolRequest) returns (Empty);
+
+  // Activity Logs
+  rpc GetActivityLogs(GetLogsRequest) returns (GetLogsResponse);
+
+  // Utility
+  rpc Log(LogRequest) returns (Empty);
+  rpc GetKV(KVRequest) returns (KVResponse);
+  rpc SetKV(KVSetRequest) returns (Empty);
+  rpc DeleteKV(KVRequest) returns (Empty);
+  rpc QueryDB(QueryDBRequest) returns (QueryDBResponse);
+  rpc BroadcastEvent(BroadcastEventRequest) returns (Empty);
+}
+
+// Common
+message Empty {}
+message IDRequest { string id = 1; }
+message EmailRequest { string email = 1; }
+message UsernameRequest { string username = 1; }
+message BoolRequest { bool value = 1; }
+
+message PluginInfo {
+  string id = 1;
+  string name = 2;
+  string version = 3;
+  repeated string events = 4;
+  repeated RouteInfo routes = 5;
+  repeated ScheduleInfo schedules = 6;
+}
+
+message RouteInfo { string method = 1; string path = 2; }
+message ScheduleInfo { string id = 1; string cron = 2; }
+
+message Event {
+  string type = 1;
+  string timestamp = 2;
+  map<string, string> data = 3;
+  bool sync = 4;
+}
+
+message EventResponse { bool allow = 1; string message = 2; }
+
+message HTTPRequest {
+  string method = 1;
+  string path = 2;
+  map<string, string> headers = 3;
+  map<string, string> query = 4;
+  bytes body = 5;
+  string user_id = 6;
+}
+
+message HTTPResponse {
+  int32 status = 1;
+  map<string, string> headers = 2;
+  bytes body = 3;
+}
+
+message ScheduleRequest { string schedule_id = 1; }
+
+// Server
+message Server {
+  string id = 1;
+  string name = 2;
+  string user_id = 3;
+  string node_id = 4;
+  string status = 5;
+  int32 memory = 6;
+  int32 cpu = 7;
+  int32 disk = 8;
+  bool suspended = 9;
+  string package_id = 10;
+  string primary_allocation = 11;
+}
+
+message ListServersRequest {
+  string user_id = 1;
+  string node_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListServersResponse { repeated Server servers = 1; int32 total = 2; }
+
+message CreateServerRequest {
+  string name = 1;
+  string user_id = 2;
+  string node_id = 3;
+  string package_id = 4;
+  int32 memory = 5;
+  int32 cpu = 6;
+  int32 disk = 7;
+}
+
+message UpdateServerRequest {
+  string id = 1;
+  string name = 2;
+  int32 memory = 3;
+  int32 cpu = 4;
+  int32 disk = 5;
+  string user_id = 6;
+}
+
+message TransferServerRequest { string server_id = 1; string target_node_id = 2; }
+message AllocationRequest { string server_id = 1; int32 port = 2; }
+message UpdateVariablesRequest { string server_id = 1; map<string, string> variables = 2; }
+
+// User
+message User {
+  string id = 1;
+  string username = 2;
+  string email = 3;
+  bool is_admin = 4;
+  bool is_banned = 5;
+  int32 ram_limit = 6;
+  int32 cpu_limit = 7;
+  int32 disk_limit = 8;
+  int32 server_limit = 9;
+  bool force_password_reset = 10;
+  string created_at = 11;
+}
+
+message ListUsersRequest { int32 limit = 1; int32 offset = 2; string search = 3; string filter = 4; }
+message ListUsersResponse { repeated User users = 1; int32 total = 2; }
+message CreateUserRequest { string email = 1; string username = 2; string password = 3; }
+message UpdateUserRequest { string id = 1; string email = 2; string username = 3; string password = 4; }
+message SetUserResourcesRequest { string user_id = 1; int32 ram_limit = 2; int32 cpu_limit = 3; int32 disk_limit = 4; int32 server_limit = 5; }
+
+// Subusers
+message Subuser { string id = 1; string user_id = 2; string username = 3; string email = 4; repeated string permissions = 5; }
+message ListSubusersResponse { repeated Subuser subusers = 1; }
+message AddSubuserRequest { string server_id = 1; string email = 2; repeated string permissions = 3; }
+message UpdateSubuserRequest { string server_id = 1; string subuser_id = 2; repeated string permissions = 3; }
+message RemoveSubuserRequest { string server_id = 1; string subuser_id = 2; }
+
+// Database
+message Database { string id = 1; string name = 2; string username = 3; string password = 4; string host = 5; int32 port = 6; }
+message ListDatabasesResponse { repeated Database databases = 1; }
+message CreateDatabaseRequest { string server_id = 1; string host_id = 2; string name = 3; }
+
+// Database Hosts
+message DatabaseHost { string id = 1; string name = 2; string host = 3; int32 port = 4; string username = 5; int32 max_databases = 6; int32 databases_count = 7; }
+message ListDatabaseHostsResponse { repeated DatabaseHost hosts = 1; }
+message CreateDatabaseHostRequest { string name = 1; string host = 2; int32 port = 3; string username = 4; string password = 5; int32 max_databases = 6; }
+message UpdateDatabaseHostRequest { string id = 1; string name = 2; string host = 3; int32 port = 4; string username = 5; string password = 6; int32 max_databases = 7; }
+
+// Files
+message FileInfo { string name = 1; bool is_dir = 2; int64 size = 3; string modified = 4; string mime = 5; }
+message ListFilesResponse { repeated FileInfo files = 1; }
+message FilePathRequest { string server_id = 1; string path = 2; }
+message FileContent { bytes content = 1; string mime = 2; }
+message WriteFileRequest { string server_id = 1; string path = 2; bytes content = 3; }
+message MoveFileRequest { string server_id = 1; string from = 2; string to = 3; }
+message CompressRequest { string server_id = 1; repeated string paths = 2; string destination = 3; }
+
+// Backups
+message Backup { string id = 1; string name = 2; int64 size = 3; string created_at = 4; }
+message ListBackupsResponse { repeated Backup backups = 1; }
+message CreateBackupRequest { string server_id = 1; string name = 2; }
+message DeleteBackupRequest { string server_id = 1; string backup_id = 2; }
+
+// Nodes
+message Node { string id = 1; string name = 2; string fqdn = 3; int32 port = 4; bool is_online = 5; string last_heartbeat = 6; }
+message ListNodesResponse { repeated Node nodes = 1; }
+message CreateNodeRequest { string name = 1; string fqdn = 2; int32 port = 3; }
+message NodeWithToken { Node node = 1; string token = 2; }
+message NodeToken { string token_id = 1; string token = 2; }
+
+// Packages
+message Package {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string docker_image = 4;
+  string startup_command = 5;
+  string stop_command = 6;
+  string config_files = 7;
+  int32 default_memory = 8;
+  int32 default_cpu = 9;
+  int32 default_disk = 10;
+  bool is_public = 11;
+}
+message ListPackagesResponse { repeated Package packages = 1; }
+message CreatePackageRequest {
+  string name = 1;
+  string description = 2;
+  string docker_image = 3;
+  string startup_command = 4;
+  string stop_command = 5;
+  string config_files = 6;
+  int32 default_memory = 7;
+  int32 default_cpu = 8;
+  int32 default_disk = 9;
+  bool is_public = 10;
+}
+message UpdatePackageRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string docker_image = 4;
+  string startup_command = 5;
+  string stop_command = 6;
+  string config_files = 7;
+  int32 default_memory = 8;
+  int32 default_cpu = 9;
+  int32 default_disk = 10;
+  bool is_public = 11;
+}
+
+// IP Bans
+message IPBan { string id = 1; string ip = 2; string reason = 3; string created_at = 4; }
+message ListIPBansResponse { repeated IPBan bans = 1; }
+message CreateIPBanRequest { string ip = 1; string reason = 2; }
+
+// Settings
+message Settings { bool registration_enabled = 1; bool server_creation_enabled = 2; }
+
+// Activity Logs
+message ActivityLog {
+  string id = 1;
+  string user_id = 2;
+  string username = 3;
+  string action = 4;
+  string description = 5;
+  string ip = 6;
+  bool is_admin = 7;
+  string created_at = 8;
+}
+message GetLogsRequest { int32 limit = 1; int32 offset = 2; string search = 3; string filter = 4; }
+message GetLogsResponse { repeated ActivityLog logs = 1; int32 total = 2; }
+
+// Utility
+message LogRequest { string level = 1; string message = 2; }
+message KVRequest { string key = 1; }
+message KVResponse { string value = 1; bool found = 2; }
+message KVSetRequest { string key = 1; string value = 2; }
+message QueryDBRequest { string query = 1; repeated string args = 2; }
+message QueryDBResponse { repeated bytes rows = 1; }
+message BroadcastEventRequest { string event_type = 1; map<string, string> data = 2; }
