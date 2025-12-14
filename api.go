@@ -2,6 +2,7 @@ package birdactyl
 
 import (
 	"context"
+	"encoding/json"
 
 	pb "github.com/pizzlad/birdactyl-go-sdk/proto"
 	"google.golang.org/grpc/metadata"
@@ -44,21 +45,112 @@ type Node struct {
 	IsOnline bool
 }
 
+type Database struct {
+	ID       string
+	Name     string
+	Username string
+	Host     string
+	Port     int32
+	Password string
+}
+
+type DatabaseHost struct {
+	ID       string
+	Name     string
+	Host     string
+	Port     int32
+	Username string
+}
+
+type Backup struct {
+	ID        string
+	Name      string
+	Size      int64
+	CreatedAt string
+}
+
+type File struct {
+	Name    string
+	Size    int64
+	IsDir   bool
+	ModTime string
+}
+
+type Package struct {
+	ID          string
+	Name        string
+	Description string
+	DockerImage string
+	Memory      int32
+	CPU         int32
+	Disk        int32
+}
+
+type IPBan struct {
+	ID     string
+	IP     string
+	Reason string
+}
+
+type Subuser struct {
+	ID          string
+	UserID      string
+	Username    string
+	Permissions []string
+}
+
+type Settings struct {
+	RegistrationEnabled     bool
+	ServerCreationEnabled   bool
+}
+
+type ActivityLog struct {
+	ID          string
+	UserID      string
+	Username    string
+	Action      string
+	Description string
+	IP          string
+	CreatedAt   string
+}
+
 func (a *API) GetServer(id string) (*Server, error) {
 	r, err := a.panel.GetServer(a.ctx(), &pb.IDRequest{Id: id})
 	if err != nil {
 		return nil, err
 	}
-	return serverFromProto(r), nil
+	return &Server{ID: r.Id, Name: r.Name, OwnerID: r.UserId, NodeID: r.NodeId, Status: r.Status, Suspended: r.Suspended, Memory: r.Memory, Disk: r.Disk, CPU: r.Cpu}, nil
 }
 
 func (a *API) ListServers() []*Server {
 	r, _ := a.panel.ListServers(a.ctx(), &pb.ListServersRequest{})
-	servers := make([]*Server, len(r.GetServers()))
+	out := make([]*Server, len(r.GetServers()))
 	for i, s := range r.GetServers() {
-		servers[i] = serverFromProto(s)
+		out[i] = &Server{ID: s.Id, Name: s.Name, OwnerID: s.UserId, NodeID: s.NodeId, Status: s.Status, Suspended: s.Suspended, Memory: s.Memory, Disk: s.Disk, CPU: s.Cpu}
 	}
-	return servers
+	return out
+}
+
+func (a *API) ListServersByUser(userID string) []*Server {
+	r, _ := a.panel.ListServers(a.ctx(), &pb.ListServersRequest{UserId: userID})
+	out := make([]*Server, len(r.GetServers()))
+	for i, s := range r.GetServers() {
+		out[i] = &Server{ID: s.Id, Name: s.Name, OwnerID: s.UserId, NodeID: s.NodeId, Status: s.Status, Suspended: s.Suspended, Memory: s.Memory, Disk: s.Disk, CPU: s.Cpu}
+	}
+	return out
+}
+
+func (a *API) CreateServer(name, userID, nodeID, packageID string, memory, cpu, disk int32) (*Server, error) {
+	r, err := a.panel.CreateServer(a.ctx(), &pb.CreateServerRequest{Name: name, UserId: userID, NodeId: nodeID, PackageId: packageID, Memory: memory, Cpu: cpu, Disk: disk})
+	if err != nil {
+		return nil, err
+	}
+	return &Server{ID: r.Id, Name: r.Name, OwnerID: r.UserId, NodeID: r.NodeId}, nil
+}
+
+func (a *API) DeleteServer(id string) error {
+	_, err := a.panel.DeleteServer(a.ctx(), &pb.IDRequest{Id: id})
+	return err
 }
 
 func (a *API) StartServer(id string) error {
@@ -91,8 +183,13 @@ func (a *API) UnsuspendServer(id string) error {
 	return err
 }
 
-func (a *API) DeleteServer(id string) error {
-	_, err := a.panel.DeleteServer(a.ctx(), &pb.IDRequest{Id: id})
+func (a *API) ReinstallServer(id string) error {
+	_, err := a.panel.ReinstallServer(a.ctx(), &pb.IDRequest{Id: id})
+	return err
+}
+
+func (a *API) TransferServer(id, targetNodeID string) error {
+	_, err := a.panel.TransferServer(a.ctx(), &pb.TransferServerRequest{ServerId: id, TargetNodeId: targetNodeID})
 	return err
 }
 
@@ -101,16 +198,45 @@ func (a *API) GetUser(id string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return userFromProto(r), nil
+	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned}, nil
+}
+
+func (a *API) GetUserByEmail(email string) (*User, error) {
+	r, err := a.panel.GetUserByEmail(a.ctx(), &pb.EmailRequest{Email: email})
+	if err != nil {
+		return nil, err
+	}
+	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned}, nil
+}
+
+func (a *API) GetUserByUsername(username string) (*User, error) {
+	r, err := a.panel.GetUserByUsername(a.ctx(), &pb.UsernameRequest{Username: username})
+	if err != nil {
+		return nil, err
+	}
+	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned}, nil
 }
 
 func (a *API) ListUsers() []*User {
 	r, _ := a.panel.ListUsers(a.ctx(), &pb.ListUsersRequest{})
-	users := make([]*User, len(r.GetUsers()))
+	out := make([]*User, len(r.GetUsers()))
 	for i, u := range r.GetUsers() {
-		users[i] = userFromProto(u)
+		out[i] = &User{ID: u.Id, Username: u.Username, Email: u.Email, IsAdmin: u.IsAdmin, IsBanned: u.IsBanned}
 	}
-	return users
+	return out
+}
+
+func (a *API) CreateUser(email, username, password string) (*User, error) {
+	r, err := a.panel.CreateUser(a.ctx(), &pb.CreateUserRequest{Email: email, Username: username, Password: password})
+	if err != nil {
+		return nil, err
+	}
+	return &User{ID: r.Id, Username: r.Username, Email: r.Email}, nil
+}
+
+func (a *API) DeleteUser(id string) error {
+	_, err := a.panel.DeleteUser(a.ctx(), &pb.IDRequest{Id: id})
+	return err
 }
 
 func (a *API) BanUser(id string) error {
@@ -123,13 +249,265 @@ func (a *API) UnbanUser(id string) error {
 	return err
 }
 
+func (a *API) SetAdmin(id string) error {
+	_, err := a.panel.SetAdmin(a.ctx(), &pb.IDRequest{Id: id})
+	return err
+}
+
+func (a *API) RevokeAdmin(id string) error {
+	_, err := a.panel.RevokeAdmin(a.ctx(), &pb.IDRequest{Id: id})
+	return err
+}
+
+func (a *API) ForcePasswordReset(id string) error {
+	_, err := a.panel.ForcePasswordReset(a.ctx(), &pb.IDRequest{Id: id})
+	return err
+}
+
+func (a *API) SetUserResources(id string, ram, cpu, disk, servers *int32) error {
+	req := &pb.SetUserResourcesRequest{UserId: id}
+	if ram != nil {
+		req.RamLimit = *ram
+	}
+	if cpu != nil {
+		req.CpuLimit = *cpu
+	}
+	if disk != nil {
+		req.DiskLimit = *disk
+	}
+	if servers != nil {
+		req.ServerLimit = *servers
+	}
+	_, err := a.panel.SetUserResources(a.ctx(), req)
+	return err
+}
+
 func (a *API) ListNodes() []*Node {
 	r, _ := a.panel.ListNodes(a.ctx(), &pb.Empty{})
-	nodes := make([]*Node, len(r.GetNodes()))
+	out := make([]*Node, len(r.GetNodes()))
 	for i, n := range r.GetNodes() {
-		nodes[i] = &Node{ID: n.Id, Name: n.Name, FQDN: n.Fqdn, Port: n.Port, IsOnline: n.IsOnline}
+		out[i] = &Node{ID: n.Id, Name: n.Name, FQDN: n.Fqdn, Port: n.Port, IsOnline: n.IsOnline}
 	}
-	return nodes
+	return out
+}
+
+func (a *API) GetNode(id string) (*Node, error) {
+	r, err := a.panel.GetNode(a.ctx(), &pb.IDRequest{Id: id})
+	if err != nil {
+		return nil, err
+	}
+	return &Node{ID: r.Id, Name: r.Name, FQDN: r.Fqdn, Port: r.Port, IsOnline: r.IsOnline}, nil
+}
+
+func (a *API) CreateNode(name, fqdn string, port int32) (*Node, string, error) {
+	r, err := a.panel.CreateNode(a.ctx(), &pb.CreateNodeRequest{Name: name, Fqdn: fqdn, Port: port})
+	if err != nil {
+		return nil, "", err
+	}
+	return &Node{ID: r.Node.Id, Name: r.Node.Name, FQDN: r.Node.Fqdn, Port: r.Node.Port}, r.Token, nil
+}
+
+func (a *API) DeleteNode(id string) error {
+	_, err := a.panel.DeleteNode(a.ctx(), &pb.IDRequest{Id: id})
+	return err
+}
+
+func (a *API) ResetNodeToken(id string) (string, error) {
+	r, err := a.panel.ResetNodeToken(a.ctx(), &pb.IDRequest{Id: id})
+	if err != nil {
+		return "", err
+	}
+	return r.Token, nil
+}
+
+func (a *API) ListFiles(serverID, path string) []*File {
+	r, _ := a.panel.ListFiles(a.ctx(), &pb.FilePathRequest{ServerId: serverID, Path: path})
+	out := make([]*File, len(r.GetFiles()))
+	for i, f := range r.GetFiles() {
+		out[i] = &File{Name: f.Name, Size: f.Size, IsDir: f.IsDir, ModTime: f.Modified}
+	}
+	return out
+}
+
+func (a *API) ReadFile(serverID, path string) ([]byte, error) {
+	r, err := a.panel.ReadFile(a.ctx(), &pb.FilePathRequest{ServerId: serverID, Path: path})
+	if err != nil {
+		return nil, err
+	}
+	return r.Content, nil
+}
+
+func (a *API) WriteFile(serverID, path string, content []byte) error {
+	_, err := a.panel.WriteFile(a.ctx(), &pb.WriteFileRequest{ServerId: serverID, Path: path, Content: content})
+	return err
+}
+
+func (a *API) DeleteFile(serverID, path string) error {
+	_, err := a.panel.DeleteFile(a.ctx(), &pb.FilePathRequest{ServerId: serverID, Path: path})
+	return err
+}
+
+func (a *API) CreateFolder(serverID, path string) error {
+	_, err := a.panel.CreateFolder(a.ctx(), &pb.FilePathRequest{ServerId: serverID, Path: path})
+	return err
+}
+
+func (a *API) MoveFile(serverID, from, to string) error {
+	_, err := a.panel.MoveFile(a.ctx(), &pb.MoveFileRequest{ServerId: serverID, From: from, To: to})
+	return err
+}
+
+func (a *API) CopyFile(serverID, from, to string) error {
+	_, err := a.panel.CopyFile(a.ctx(), &pb.MoveFileRequest{ServerId: serverID, From: from, To: to})
+	return err
+}
+
+func (a *API) ListDatabases(serverID string) []*Database {
+	r, _ := a.panel.ListDatabases(a.ctx(), &pb.IDRequest{Id: serverID})
+	out := make([]*Database, len(r.GetDatabases()))
+	for i, d := range r.GetDatabases() {
+		out[i] = &Database{ID: d.Id, Name: d.Name, Username: d.Username, Host: d.Host, Port: d.Port}
+	}
+	return out
+}
+
+func (a *API) CreateDatabase(serverID, name string) (*Database, error) {
+	r, err := a.panel.CreateDatabase(a.ctx(), &pb.CreateDatabaseRequest{ServerId: serverID, Name: name})
+	if err != nil {
+		return nil, err
+	}
+	return &Database{ID: r.Id, Name: r.Name, Username: r.Username, Host: r.Host, Port: r.Port, Password: r.Password}, nil
+}
+
+func (a *API) DeleteDatabase(id string) error {
+	_, err := a.panel.DeleteDatabase(a.ctx(), &pb.IDRequest{Id: id})
+	return err
+}
+
+func (a *API) RotateDatabasePassword(id string) (*Database, error) {
+	r, err := a.panel.RotateDatabasePassword(a.ctx(), &pb.IDRequest{Id: id})
+	if err != nil {
+		return nil, err
+	}
+	return &Database{ID: r.Id, Name: r.Name, Username: r.Username, Host: r.Host, Port: r.Port, Password: r.Password}, nil
+}
+
+func (a *API) ListDatabaseHosts() []*DatabaseHost {
+	r, _ := a.panel.ListDatabaseHosts(a.ctx(), &pb.Empty{})
+	out := make([]*DatabaseHost, len(r.GetHosts()))
+	for i, h := range r.GetHosts() {
+		out[i] = &DatabaseHost{ID: h.Id, Name: h.Name, Host: h.Host, Port: h.Port, Username: h.Username}
+	}
+	return out
+}
+
+func (a *API) ListBackups(serverID string) []*Backup {
+	r, _ := a.panel.ListBackups(a.ctx(), &pb.IDRequest{Id: serverID})
+	out := make([]*Backup, len(r.GetBackups()))
+	for i, b := range r.GetBackups() {
+		out[i] = &Backup{ID: b.Id, Name: b.Name, Size: b.Size, CreatedAt: b.CreatedAt}
+	}
+	return out
+}
+
+func (a *API) CreateBackup(serverID, name string) error {
+	_, err := a.panel.CreateBackup(a.ctx(), &pb.CreateBackupRequest{ServerId: serverID, Name: name})
+	return err
+}
+
+func (a *API) DeleteBackup(serverID, backupID string) error {
+	_, err := a.panel.DeleteBackup(a.ctx(), &pb.DeleteBackupRequest{ServerId: serverID, BackupId: backupID})
+	return err
+}
+
+func (a *API) ListPackages() []*Package {
+	r, _ := a.panel.ListPackages(a.ctx(), &pb.Empty{})
+	out := make([]*Package, len(r.GetPackages()))
+	for i, p := range r.GetPackages() {
+		out[i] = &Package{ID: p.Id, Name: p.Name, Description: p.Description, DockerImage: p.DockerImage, Memory: p.DefaultMemory, CPU: p.DefaultCpu, Disk: p.DefaultDisk}
+	}
+	return out
+}
+
+func (a *API) GetPackage(id string) (*Package, error) {
+	r, err := a.panel.GetPackage(a.ctx(), &pb.IDRequest{Id: id})
+	if err != nil {
+		return nil, err
+	}
+	return &Package{ID: r.Id, Name: r.Name, Description: r.Description, DockerImage: r.DockerImage, Memory: r.DefaultMemory, CPU: r.DefaultCpu, Disk: r.DefaultDisk}, nil
+}
+
+func (a *API) DeletePackage(id string) error {
+	_, err := a.panel.DeletePackage(a.ctx(), &pb.IDRequest{Id: id})
+	return err
+}
+
+func (a *API) ListIPBans() []*IPBan {
+	r, _ := a.panel.ListIPBans(a.ctx(), &pb.Empty{})
+	out := make([]*IPBan, len(r.GetBans()))
+	for i, b := range r.GetBans() {
+		out[i] = &IPBan{ID: b.Id, IP: b.Ip, Reason: b.Reason}
+	}
+	return out
+}
+
+func (a *API) CreateIPBan(ip, reason string) (*IPBan, error) {
+	r, err := a.panel.CreateIPBan(a.ctx(), &pb.CreateIPBanRequest{Ip: ip, Reason: reason})
+	if err != nil {
+		return nil, err
+	}
+	return &IPBan{ID: r.Id, IP: r.Ip, Reason: r.Reason}, nil
+}
+
+func (a *API) DeleteIPBan(id string) error {
+	_, err := a.panel.DeleteIPBan(a.ctx(), &pb.IDRequest{Id: id})
+	return err
+}
+
+func (a *API) ListSubusers(serverID string) []*Subuser {
+	r, _ := a.panel.ListSubusers(a.ctx(), &pb.IDRequest{Id: serverID})
+	out := make([]*Subuser, len(r.GetSubusers()))
+	for i, s := range r.GetSubusers() {
+		out[i] = &Subuser{ID: s.Id, UserID: s.UserId, Username: s.Username, Permissions: s.Permissions}
+	}
+	return out
+}
+
+func (a *API) AddSubuser(serverID, email string, permissions []string) (*Subuser, error) {
+	r, err := a.panel.AddSubuser(a.ctx(), &pb.AddSubuserRequest{ServerId: serverID, Email: email, Permissions: permissions})
+	if err != nil {
+		return nil, err
+	}
+	return &Subuser{ID: r.Id, UserID: r.UserId, Username: r.Username, Permissions: r.Permissions}, nil
+}
+
+func (a *API) RemoveSubuser(serverID, subuserID string) error {
+	_, err := a.panel.RemoveSubuser(a.ctx(), &pb.RemoveSubuserRequest{ServerId: serverID, SubuserId: subuserID})
+	return err
+}
+
+func (a *API) GetSettings() *Settings {
+	r, _ := a.panel.GetSettings(a.ctx(), &pb.Empty{})
+	return &Settings{RegistrationEnabled: r.GetRegistrationEnabled(), ServerCreationEnabled: r.GetServerCreationEnabled()}
+}
+
+func (a *API) SetRegistrationEnabled(enabled bool) error {
+	_, err := a.panel.SetRegistrationEnabled(a.ctx(), &pb.BoolRequest{Value: enabled})
+	return err
+}
+
+func (a *API) SetServerCreationEnabled(enabled bool) error {
+	_, err := a.panel.SetServerCreationEnabled(a.ctx(), &pb.BoolRequest{Value: enabled})
+	return err
+}
+
+func (a *API) GetActivityLogs(limit int32) []*ActivityLog {
+	r, _ := a.panel.GetActivityLogs(a.ctx(), &pb.GetLogsRequest{Limit: limit})
+	out := make([]*ActivityLog, len(r.GetLogs()))
+	for i, l := range r.GetLogs() {
+		out[i] = &ActivityLog{ID: l.Id, UserID: l.UserId, Username: l.Username, Action: l.Action, Description: l.Description, IP: l.Ip, CreatedAt: l.CreatedAt}
+	}
+	return out
 }
 
 func (a *API) GetKV(key string) (string, bool) {
@@ -145,18 +523,20 @@ func (a *API) DeleteKV(key string) {
 	a.panel.DeleteKV(a.ctx(), &pb.KVRequest{Key: key})
 }
 
+func (a *API) QueryDB(query string, args ...string) ([]map[string]interface{}, error) {
+	r, err := a.panel.QueryDB(a.ctx(), &pb.QueryDBRequest{Query: query, Args: args})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]map[string]interface{}, len(r.Rows))
+	for i, row := range r.Rows {
+		var m map[string]interface{}
+		json.Unmarshal(row, &m)
+		out[i] = m
+	}
+	return out, nil
+}
+
 func (a *API) BroadcastEvent(eventType string, data map[string]string) {
 	a.panel.BroadcastEvent(a.ctx(), &pb.BroadcastEventRequest{EventType: eventType, Data: data})
-}
-
-func serverFromProto(s *pb.Server) *Server {
-	return &Server{
-		ID: s.Id, Name: s.Name, OwnerID: s.UserId, NodeID: s.NodeId,
-		Status: s.Status, Suspended: s.Suspended,
-		Memory: s.Memory, Disk: s.Disk, CPU: s.Cpu,
-	}
-}
-
-func userFromProto(u *pb.User) *User {
-	return &User{ID: u.Id, Username: u.Username, Email: u.Email, IsAdmin: u.IsAdmin, IsBanned: u.IsBanned}
 }
