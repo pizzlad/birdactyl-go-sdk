@@ -65,7 +65,7 @@ func (h *HotConfig[T]) DynamicConfig() *HotConfig[T] {
 	return h
 }
 
-func (h *HotConfig[T]) Stop() {
+func (h *HotConfig[T]) StopWatching() {
 	if h.stopCh != nil {
 		close(h.stopCh)
 		h.stopCh = nil

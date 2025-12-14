@@ -22,31 +22,40 @@ func (a *API) Log(level, message string) {
 }
 
 type Server struct {
-	ID        string
-	Name      string
-	OwnerID   string
-	NodeID    string
-	Status    string
-	Suspended bool
-	Memory    int32
-	Disk      int32
-	CPU       int32
+	ID                string
+	Name              string
+	OwnerID           string
+	NodeID            string
+	Status            string
+	Suspended         bool
+	Memory            int32
+	Disk              int32
+	CPU               int32
+	PackageID         string
+	PrimaryAllocation string
 }
 
 type User struct {
-	ID       string
-	Username string
-	Email    string
-	IsAdmin  bool
-	IsBanned bool
+	ID                 string
+	Username           string
+	Email              string
+	IsAdmin            bool
+	IsBanned           bool
+	ForcePasswordReset bool
+	RamLimit           int32
+	CpuLimit           int32
+	DiskLimit          int32
+	ServerLimit        int32
+	CreatedAt          string
 }
 
 type Node struct {
-	ID       string
-	Name     string
-	FQDN     string
-	Port     int32
-	IsOnline bool
+	ID            string
+	Name          string
+	FQDN          string
+	Port          int32
+	IsOnline      bool
+	LastHeartbeat string
 }
 
 type Database struct {
@@ -59,11 +68,13 @@ type Database struct {
 }
 
 type DatabaseHost struct {
-	ID       string
-	Name     string
-	Host     string
-	Port     int32
-	Username string
+	ID             string
+	Name           string
+	Host           string
+	Port           int32
+	Username       string
+	MaxDatabases   int32
+	DatabasesCount int32
 }
 
 type Backup struct {
@@ -78,28 +89,35 @@ type File struct {
 	Size    int64
 	IsDir   bool
 	ModTime string
+	Mime    string
 }
 
 type Package struct {
-	ID          string
-	Name        string
-	Description string
-	DockerImage string
-	Memory      int32
-	CPU         int32
-	Disk        int32
+	ID             string
+	Name           string
+	Description    string
+	DockerImage    string
+	StartupCommand string
+	StopCommand    string
+	ConfigFiles    string
+	Memory         int32
+	CPU            int32
+	Disk           int32
+	IsPublic       bool
 }
 
 type IPBan struct {
-	ID     string
-	IP     string
-	Reason string
+	ID        string
+	IP        string
+	Reason    string
+	CreatedAt string
 }
 
 type Subuser struct {
 	ID          string
 	UserID      string
 	Username    string
+	Email       string
 	Permissions []string
 }
 
@@ -115,6 +133,7 @@ type ActivityLog struct {
 	Action      string
 	Description string
 	IP          string
+	IsAdmin     bool
 	CreatedAt   string
 }
 
@@ -123,14 +142,14 @@ func (a *API) GetServer(id string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Server{ID: r.Id, Name: r.Name, OwnerID: r.UserId, NodeID: r.NodeId, Status: r.Status, Suspended: r.Suspended, Memory: r.Memory, Disk: r.Disk, CPU: r.Cpu}, nil
+	return &Server{ID: r.Id, Name: r.Name, OwnerID: r.UserId, NodeID: r.NodeId, Status: r.Status, Suspended: r.Suspended, Memory: r.Memory, Disk: r.Disk, CPU: r.Cpu, PackageID: r.PackageId, PrimaryAllocation: r.PrimaryAllocation}, nil
 }
 
 func (a *API) ListServers() []*Server {
 	r, _ := a.panel.ListServers(a.ctx(), &pb.ListServersRequest{})
 	out := make([]*Server, len(r.GetServers()))
 	for i, s := range r.GetServers() {
-		out[i] = &Server{ID: s.Id, Name: s.Name, OwnerID: s.UserId, NodeID: s.NodeId, Status: s.Status, Suspended: s.Suspended, Memory: s.Memory, Disk: s.Disk, CPU: s.Cpu}
+		out[i] = &Server{ID: s.Id, Name: s.Name, OwnerID: s.UserId, NodeID: s.NodeId, Status: s.Status, Suspended: s.Suspended, Memory: s.Memory, Disk: s.Disk, CPU: s.Cpu, PackageID: s.PackageId, PrimaryAllocation: s.PrimaryAllocation}
 	}
 	return out
 }
@@ -139,7 +158,7 @@ func (a *API) ListServersByUser(userID string) []*Server {
 	r, _ := a.panel.ListServers(a.ctx(), &pb.ListServersRequest{UserId: userID})
 	out := make([]*Server, len(r.GetServers()))
 	for i, s := range r.GetServers() {
-		out[i] = &Server{ID: s.Id, Name: s.Name, OwnerID: s.UserId, NodeID: s.NodeId, Status: s.Status, Suspended: s.Suspended, Memory: s.Memory, Disk: s.Disk, CPU: s.Cpu}
+		out[i] = &Server{ID: s.Id, Name: s.Name, OwnerID: s.UserId, NodeID: s.NodeId, Status: s.Status, Suspended: s.Suspended, Memory: s.Memory, Disk: s.Disk, CPU: s.Cpu, PackageID: s.PackageId, PrimaryAllocation: s.PrimaryAllocation}
 	}
 	return out
 }
@@ -170,7 +189,7 @@ func (a *API) UpdateServer(id string, name *string, memory, cpu, disk *int32) (*
 	if err != nil {
 		return nil, err
 	}
-	return &Server{ID: r.Id, Name: r.Name, OwnerID: r.UserId, NodeID: r.NodeId, Status: r.Status, Suspended: r.Suspended, Memory: r.Memory, Disk: r.Disk, CPU: r.Cpu}, nil
+	return &Server{ID: r.Id, Name: r.Name, OwnerID: r.UserId, NodeID: r.NodeId, Status: r.Status, Suspended: r.Suspended, Memory: r.Memory, Disk: r.Disk, CPU: r.Cpu, PackageID: r.PackageId, PrimaryAllocation: r.PrimaryAllocation}, nil
 }
 
 func (a *API) DeleteServer(id string) error {
@@ -284,7 +303,7 @@ func (a *API) GetUser(id string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned}, nil
+	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned, ForcePasswordReset: r.ForcePasswordReset, RamLimit: r.RamLimit, CpuLimit: r.CpuLimit, DiskLimit: r.DiskLimit, ServerLimit: r.ServerLimit, CreatedAt: r.CreatedAt}, nil
 }
 
 func (a *API) GetUserByEmail(email string) (*User, error) {
@@ -292,7 +311,7 @@ func (a *API) GetUserByEmail(email string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned}, nil
+	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned, ForcePasswordReset: r.ForcePasswordReset, RamLimit: r.RamLimit, CpuLimit: r.CpuLimit, DiskLimit: r.DiskLimit, ServerLimit: r.ServerLimit, CreatedAt: r.CreatedAt}, nil
 }
 
 func (a *API) GetUserByUsername(username string) (*User, error) {
@@ -300,14 +319,14 @@ func (a *API) GetUserByUsername(username string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned}, nil
+	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned, ForcePasswordReset: r.ForcePasswordReset, RamLimit: r.RamLimit, CpuLimit: r.CpuLimit, DiskLimit: r.DiskLimit, ServerLimit: r.ServerLimit, CreatedAt: r.CreatedAt}, nil
 }
 
 func (a *API) ListUsers() []*User {
 	r, _ := a.panel.ListUsers(a.ctx(), &pb.ListUsersRequest{})
 	out := make([]*User, len(r.GetUsers()))
 	for i, u := range r.GetUsers() {
-		out[i] = &User{ID: u.Id, Username: u.Username, Email: u.Email, IsAdmin: u.IsAdmin, IsBanned: u.IsBanned}
+		out[i] = &User{ID: u.Id, Username: u.Username, Email: u.Email, IsAdmin: u.IsAdmin, IsBanned: u.IsBanned, ForcePasswordReset: u.ForcePasswordReset, RamLimit: u.RamLimit, CpuLimit: u.CpuLimit, DiskLimit: u.DiskLimit, ServerLimit: u.ServerLimit, CreatedAt: u.CreatedAt}
 	}
 	return out
 }
@@ -332,7 +351,7 @@ func (a *API) UpdateUser(id string, username, email *string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned}, nil
+	return &User{ID: r.Id, Username: r.Username, Email: r.Email, IsAdmin: r.IsAdmin, IsBanned: r.IsBanned, ForcePasswordReset: r.ForcePasswordReset, RamLimit: r.RamLimit, CpuLimit: r.CpuLimit, DiskLimit: r.DiskLimit, ServerLimit: r.ServerLimit, CreatedAt: r.CreatedAt}, nil
 }
 
 func (a *API) DeleteUser(id string) error {
@@ -387,7 +406,7 @@ func (a *API) ListNodes() []*Node {
 	r, _ := a.panel.ListNodes(a.ctx(), &pb.Empty{})
 	out := make([]*Node, len(r.GetNodes()))
 	for i, n := range r.GetNodes() {
-		out[i] = &Node{ID: n.Id, Name: n.Name, FQDN: n.Fqdn, Port: n.Port, IsOnline: n.IsOnline}
+		out[i] = &Node{ID: n.Id, Name: n.Name, FQDN: n.Fqdn, Port: n.Port, IsOnline: n.IsOnline, LastHeartbeat: n.LastHeartbeat}
 	}
 	return out
 }
@@ -397,7 +416,7 @@ func (a *API) GetNode(id string) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Node{ID: r.Id, Name: r.Name, FQDN: r.Fqdn, Port: r.Port, IsOnline: r.IsOnline}, nil
+	return &Node{ID: r.Id, Name: r.Name, FQDN: r.Fqdn, Port: r.Port, IsOnline: r.IsOnline, LastHeartbeat: r.LastHeartbeat}, nil
 }
 
 func (a *API) CreateNode(name, fqdn string, port int32) (*Node, string, error) {
@@ -405,7 +424,7 @@ func (a *API) CreateNode(name, fqdn string, port int32) (*Node, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	return &Node{ID: r.Node.Id, Name: r.Node.Name, FQDN: r.Node.Fqdn, Port: r.Node.Port}, r.Token, nil
+	return &Node{ID: r.Node.Id, Name: r.Node.Name, FQDN: r.Node.Fqdn, Port: r.Node.Port, LastHeartbeat: r.Node.LastHeartbeat}, r.Token, nil
 }
 
 func (a *API) DeleteNode(id string) error {
@@ -425,7 +444,7 @@ func (a *API) ListFiles(serverID, path string) []*File {
 	r, _ := a.panel.ListFiles(a.ctx(), &pb.FilePathRequest{ServerId: serverID, Path: path})
 	out := make([]*File, len(r.GetFiles()))
 	for i, f := range r.GetFiles() {
-		out[i] = &File{Name: f.Name, Size: f.Size, IsDir: f.IsDir, ModTime: f.Modified}
+		out[i] = &File{Name: f.Name, Size: f.Size, IsDir: f.IsDir, ModTime: f.Modified, Mime: f.Mime}
 	}
 	return out
 }
@@ -497,7 +516,7 @@ func (a *API) ListDatabaseHosts() []*DatabaseHost {
 	r, _ := a.panel.ListDatabaseHosts(a.ctx(), &pb.Empty{})
 	out := make([]*DatabaseHost, len(r.GetHosts()))
 	for i, h := range r.GetHosts() {
-		out[i] = &DatabaseHost{ID: h.Id, Name: h.Name, Host: h.Host, Port: h.Port, Username: h.Username}
+		out[i] = &DatabaseHost{ID: h.Id, Name: h.Name, Host: h.Host, Port: h.Port, Username: h.Username, MaxDatabases: h.MaxDatabases, DatabasesCount: h.DatabasesCount}
 	}
 	return out
 }
@@ -525,7 +544,7 @@ func (a *API) ListPackages() []*Package {
 	r, _ := a.panel.ListPackages(a.ctx(), &pb.Empty{})
 	out := make([]*Package, len(r.GetPackages()))
 	for i, p := range r.GetPackages() {
-		out[i] = &Package{ID: p.Id, Name: p.Name, Description: p.Description, DockerImage: p.DockerImage, Memory: p.DefaultMemory, CPU: p.DefaultCpu, Disk: p.DefaultDisk}
+		out[i] = &Package{ID: p.Id, Name: p.Name, Description: p.Description, DockerImage: p.DockerImage, StartupCommand: p.StartupCommand, StopCommand: p.StopCommand, ConfigFiles: p.ConfigFiles, Memory: p.DefaultMemory, CPU: p.DefaultCpu, Disk: p.DefaultDisk, IsPublic: p.IsPublic}
 	}
 	return out
 }
@@ -535,7 +554,7 @@ func (a *API) GetPackage(id string) (*Package, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Package{ID: r.Id, Name: r.Name, Description: r.Description, DockerImage: r.DockerImage, Memory: r.DefaultMemory, CPU: r.DefaultCpu, Disk: r.DefaultDisk}, nil
+	return &Package{ID: r.Id, Name: r.Name, Description: r.Description, DockerImage: r.DockerImage, StartupCommand: r.StartupCommand, StopCommand: r.StopCommand, ConfigFiles: r.ConfigFiles, Memory: r.DefaultMemory, CPU: r.DefaultCpu, Disk: r.DefaultDisk, IsPublic: r.IsPublic}, nil
 }
 
 func (a *API) CreatePackage(name, description, dockerImage, startupCmd, stopCmd, configFiles string, memory, cpu, disk int32, isPublic bool) (*Package, error) {
@@ -547,7 +566,7 @@ func (a *API) CreatePackage(name, description, dockerImage, startupCmd, stopCmd,
 	if err != nil {
 		return nil, err
 	}
-	return &Package{ID: r.Id, Name: r.Name, Description: r.Description, DockerImage: r.DockerImage, Memory: r.DefaultMemory, CPU: r.DefaultCpu, Disk: r.DefaultDisk}, nil
+	return &Package{ID: r.Id, Name: r.Name, Description: r.Description, DockerImage: r.DockerImage, StartupCommand: r.StartupCommand, StopCommand: r.StopCommand, ConfigFiles: r.ConfigFiles, Memory: r.DefaultMemory, CPU: r.DefaultCpu, Disk: r.DefaultDisk, IsPublic: r.IsPublic}, nil
 }
 
 func (a *API) UpdatePackage(id string, name, description *string, memory, cpu, disk *int32) (*Package, error) {
@@ -571,7 +590,7 @@ func (a *API) UpdatePackage(id string, name, description *string, memory, cpu, d
 	if err != nil {
 		return nil, err
 	}
-	return &Package{ID: r.Id, Name: r.Name, Description: r.Description, DockerImage: r.DockerImage, Memory: r.DefaultMemory, CPU: r.DefaultCpu, Disk: r.DefaultDisk}, nil
+	return &Package{ID: r.Id, Name: r.Name, Description: r.Description, DockerImage: r.DockerImage, StartupCommand: r.StartupCommand, StopCommand: r.StopCommand, ConfigFiles: r.ConfigFiles, Memory: r.DefaultMemory, CPU: r.DefaultCpu, Disk: r.DefaultDisk, IsPublic: r.IsPublic}, nil
 }
 
 func (a *API) DeletePackage(id string) error {
@@ -583,7 +602,7 @@ func (a *API) ListIPBans() []*IPBan {
 	r, _ := a.panel.ListIPBans(a.ctx(), &pb.Empty{})
 	out := make([]*IPBan, len(r.GetBans()))
 	for i, b := range r.GetBans() {
-		out[i] = &IPBan{ID: b.Id, IP: b.Ip, Reason: b.Reason}
+		out[i] = &IPBan{ID: b.Id, IP: b.Ip, Reason: b.Reason, CreatedAt: b.CreatedAt}
 	}
 	return out
 }
@@ -593,7 +612,7 @@ func (a *API) CreateIPBan(ip, reason string) (*IPBan, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &IPBan{ID: r.Id, IP: r.Ip, Reason: r.Reason}, nil
+	return &IPBan{ID: r.Id, IP: r.Ip, Reason: r.Reason, CreatedAt: r.CreatedAt}, nil
 }
 
 func (a *API) DeleteIPBan(id string) error {
@@ -605,7 +624,7 @@ func (a *API) ListSubusers(serverID string) []*Subuser {
 	r, _ := a.panel.ListSubusers(a.ctx(), &pb.IDRequest{Id: serverID})
 	out := make([]*Subuser, len(r.GetSubusers()))
 	for i, s := range r.GetSubusers() {
-		out[i] = &Subuser{ID: s.Id, UserID: s.UserId, Username: s.Username, Permissions: s.Permissions}
+		out[i] = &Subuser{ID: s.Id, UserID: s.UserId, Username: s.Username, Email: s.Email, Permissions: s.Permissions}
 	}
 	return out
 }
@@ -615,7 +634,7 @@ func (a *API) AddSubuser(serverID, email string, permissions []string) (*Subuser
 	if err != nil {
 		return nil, err
 	}
-	return &Subuser{ID: r.Id, UserID: r.UserId, Username: r.Username, Permissions: r.Permissions}, nil
+	return &Subuser{ID: r.Id, UserID: r.UserId, Username: r.Username, Email: r.Email, Permissions: r.Permissions}, nil
 }
 
 func (a *API) UpdateSubuser(serverID, subuserID string, permissions []string) error {
@@ -647,7 +666,7 @@ func (a *API) GetActivityLogs(limit int32) []*ActivityLog {
 	r, _ := a.panel.GetActivityLogs(a.ctx(), &pb.GetLogsRequest{Limit: limit})
 	out := make([]*ActivityLog, len(r.GetLogs()))
 	for i, l := range r.GetLogs() {
-		out[i] = &ActivityLog{ID: l.Id, UserID: l.UserId, Username: l.Username, Action: l.Action, Description: l.Description, IP: l.Ip, CreatedAt: l.CreatedAt}
+		out[i] = &ActivityLog{ID: l.Id, UserID: l.UserId, Username: l.Username, Action: l.Action, Description: l.Description, IP: l.Ip, IsAdmin: l.IsAdmin, CreatedAt: l.CreatedAt}
 	}
 	return out
 }
