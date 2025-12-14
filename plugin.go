@@ -168,10 +168,6 @@ func (p *Plugin) Start(panelAddr string, defaultPort int) error {
 		}
 	}
 
-	if p.onStart != nil {
-		p.onStart()
-	}
-
 	conn, err := grpc.NewClient(panelAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
@@ -185,6 +181,10 @@ func (p *Plugin) Start(panelAddr string, defaultPort int) error {
 	p.conn = conn
 	p.panel = pb.NewPanelServiceClient(conn)
 	p.api = &API{panel: p.panel, pluginID: p.id}
+
+	if p.onStart != nil {
+		p.onStart()
+	}
 
 	p.Log(p.name + " v" + p.version + " started")
 
