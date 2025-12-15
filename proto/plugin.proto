@@ -34,6 +34,11 @@ service PanelService {
   // Server Console
   rpc GetConsoleLog(ConsoleLogRequest) returns (ConsoleLogResponse);
   rpc SendCommand(SendCommandRequest) returns (Empty);
+  rpc StreamConsole(StreamConsoleRequest) returns (stream ConsoleLine);
+  rpc GetFullLog(IDRequest) returns (FullLogResponse);
+  rpc SearchLogs(SearchLogsRequest) returns (SearchLogsResponse);
+  rpc ListLogFiles(IDRequest) returns (LogFilesResponse);
+  rpc ReadLogFile(ReadLogFileRequest) returns (FullLogResponse);
 
   // Server Stats
   rpc GetServerStats(IDRequest) returns (ServerStats);
@@ -196,6 +201,13 @@ message MixinResponse {
   bytes output = 2;
   string error = 3;
   bytes modified_input = 4;
+  repeated Notification notifications = 5;
+}
+
+message Notification {
+  string title = 1;
+  string message = 2;
+  string type = 3; // error, success, info
 }
 
 message RouteInfo { string method = 1; string path = 2; }
@@ -278,6 +290,16 @@ message ServerStats { int64 memory_bytes = 1; int64 memory_limit = 2; double cpu
 message AllocationRequest { string server_id = 1; int32 port = 2; }
 message CompressRequest { string server_id = 1; repeated string paths = 2; string destination = 3; }
 message UpdateVariablesRequest { string server_id = 1; map<string, string> variables = 2; }
+
+message StreamConsoleRequest { string server_id = 1; bool include_history = 2; int32 history_lines = 3; }
+message ConsoleLine { string line = 1; int64 timestamp = 2; }
+message FullLogResponse { bytes content = 1; int64 size = 2; }
+message SearchLogsRequest { string server_id = 1; string pattern = 2; bool regex = 3; int32 limit = 4; int64 since = 5; }
+message SearchLogsResponse { repeated LogMatch matches = 1; }
+message LogMatch { string line = 1; int32 line_number = 2; int64 timestamp = 3; }
+message LogFilesResponse { repeated LogFileInfo files = 1; }
+message LogFileInfo { string name = 1; int64 size = 2; string modified = 3; }
+message ReadLogFileRequest { string server_id = 1; string filename = 2; }
 
 // User
 message User {

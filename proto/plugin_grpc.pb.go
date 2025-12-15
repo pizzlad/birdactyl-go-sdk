@@ -326,6 +326,11 @@ const (
 	PanelService_TransferServer_FullMethodName           = "/plugins.PanelService/TransferServer"
 	PanelService_GetConsoleLog_FullMethodName            = "/plugins.PanelService/GetConsoleLog"
 	PanelService_SendCommand_FullMethodName              = "/plugins.PanelService/SendCommand"
+	PanelService_StreamConsole_FullMethodName            = "/plugins.PanelService/StreamConsole"
+	PanelService_GetFullLog_FullMethodName               = "/plugins.PanelService/GetFullLog"
+	PanelService_SearchLogs_FullMethodName               = "/plugins.PanelService/SearchLogs"
+	PanelService_ListLogFiles_FullMethodName             = "/plugins.PanelService/ListLogFiles"
+	PanelService_ReadLogFile_FullMethodName              = "/plugins.PanelService/ReadLogFile"
 	PanelService_GetServerStats_FullMethodName           = "/plugins.PanelService/GetServerStats"
 	PanelService_AddAllocation_FullMethodName            = "/plugins.PanelService/AddAllocation"
 	PanelService_DeleteAllocation_FullMethodName         = "/plugins.PanelService/DeleteAllocation"
@@ -417,6 +422,11 @@ type PanelServiceClient interface {
 	// Server Console
 	GetConsoleLog(ctx context.Context, in *ConsoleLogRequest, opts ...grpc.CallOption) (*ConsoleLogResponse, error)
 	SendCommand(ctx context.Context, in *SendCommandRequest, opts ...grpc.CallOption) (*Empty, error)
+	StreamConsole(ctx context.Context, in *StreamConsoleRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ConsoleLine], error)
+	GetFullLog(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*FullLogResponse, error)
+	SearchLogs(ctx context.Context, in *SearchLogsRequest, opts ...grpc.CallOption) (*SearchLogsResponse, error)
+	ListLogFiles(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*LogFilesResponse, error)
+	ReadLogFile(ctx context.Context, in *ReadLogFileRequest, opts ...grpc.CallOption) (*FullLogResponse, error)
 	// Server Stats
 	GetServerStats(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*ServerStats, error)
 	// Server Allocations
@@ -656,6 +666,65 @@ func (c *panelServiceClient) SendCommand(ctx context.Context, in *SendCommandReq
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, PanelService_SendCommand_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *panelServiceClient) StreamConsole(ctx context.Context, in *StreamConsoleRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ConsoleLine], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &PanelService_ServiceDesc.Streams[0], PanelService_StreamConsole_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[StreamConsoleRequest, ConsoleLine]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type PanelService_StreamConsoleClient = grpc.ServerStreamingClient[ConsoleLine]
+
+func (c *panelServiceClient) GetFullLog(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*FullLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FullLogResponse)
+	err := c.cc.Invoke(ctx, PanelService_GetFullLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *panelServiceClient) SearchLogs(ctx context.Context, in *SearchLogsRequest, opts ...grpc.CallOption) (*SearchLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SearchLogsResponse)
+	err := c.cc.Invoke(ctx, PanelService_SearchLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *panelServiceClient) ListLogFiles(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*LogFilesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LogFilesResponse)
+	err := c.cc.Invoke(ctx, PanelService_ListLogFiles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *panelServiceClient) ReadLogFile(ctx context.Context, in *ReadLogFileRequest, opts ...grpc.CallOption) (*FullLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FullLogResponse)
+	err := c.cc.Invoke(ctx, PanelService_ReadLogFile_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1363,6 +1432,11 @@ type PanelServiceServer interface {
 	// Server Console
 	GetConsoleLog(context.Context, *ConsoleLogRequest) (*ConsoleLogResponse, error)
 	SendCommand(context.Context, *SendCommandRequest) (*Empty, error)
+	StreamConsole(*StreamConsoleRequest, grpc.ServerStreamingServer[ConsoleLine]) error
+	GetFullLog(context.Context, *IDRequest) (*FullLogResponse, error)
+	SearchLogs(context.Context, *SearchLogsRequest) (*SearchLogsResponse, error)
+	ListLogFiles(context.Context, *IDRequest) (*LogFilesResponse, error)
+	ReadLogFile(context.Context, *ReadLogFileRequest) (*FullLogResponse, error)
 	// Server Stats
 	GetServerStats(context.Context, *IDRequest) (*ServerStats, error)
 	// Server Allocations
@@ -1502,6 +1576,21 @@ func (UnimplementedPanelServiceServer) GetConsoleLog(context.Context, *ConsoleLo
 }
 func (UnimplementedPanelServiceServer) SendCommand(context.Context, *SendCommandRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method SendCommand not implemented")
+}
+func (UnimplementedPanelServiceServer) StreamConsole(*StreamConsoleRequest, grpc.ServerStreamingServer[ConsoleLine]) error {
+	return status.Error(codes.Unimplemented, "method StreamConsole not implemented")
+}
+func (UnimplementedPanelServiceServer) GetFullLog(context.Context, *IDRequest) (*FullLogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFullLog not implemented")
+}
+func (UnimplementedPanelServiceServer) SearchLogs(context.Context, *SearchLogsRequest) (*SearchLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SearchLogs not implemented")
+}
+func (UnimplementedPanelServiceServer) ListLogFiles(context.Context, *IDRequest) (*LogFilesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListLogFiles not implemented")
+}
+func (UnimplementedPanelServiceServer) ReadLogFile(context.Context, *ReadLogFileRequest) (*FullLogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReadLogFile not implemented")
 }
 func (UnimplementedPanelServiceServer) GetServerStats(context.Context, *IDRequest) (*ServerStats, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetServerStats not implemented")
@@ -1994,6 +2083,89 @@ func _PanelService_SendCommand_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PanelServiceServer).SendCommand(ctx, req.(*SendCommandRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PanelService_StreamConsole_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamConsoleRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(PanelServiceServer).StreamConsole(m, &grpc.GenericServerStream[StreamConsoleRequest, ConsoleLine]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type PanelService_StreamConsoleServer = grpc.ServerStreamingServer[ConsoleLine]
+
+func _PanelService_GetFullLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PanelServiceServer).GetFullLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PanelService_GetFullLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PanelServiceServer).GetFullLog(ctx, req.(*IDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PanelService_SearchLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PanelServiceServer).SearchLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PanelService_SearchLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PanelServiceServer).SearchLogs(ctx, req.(*SearchLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PanelService_ListLogFiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PanelServiceServer).ListLogFiles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PanelService_ListLogFiles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PanelServiceServer).ListLogFiles(ctx, req.(*IDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PanelService_ReadLogFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadLogFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PanelServiceServer).ReadLogFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PanelService_ReadLogFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PanelServiceServer).ReadLogFile(ctx, req.(*ReadLogFileRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3290,6 +3462,22 @@ var PanelService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PanelService_SendCommand_Handler,
 		},
 		{
+			MethodName: "GetFullLog",
+			Handler:    _PanelService_GetFullLog_Handler,
+		},
+		{
+			MethodName: "SearchLogs",
+			Handler:    _PanelService_SearchLogs_Handler,
+		},
+		{
+			MethodName: "ListLogFiles",
+			Handler:    _PanelService_ListLogFiles_Handler,
+		},
+		{
+			MethodName: "ReadLogFile",
+			Handler:    _PanelService_ReadLogFile_Handler,
+		},
+		{
 			MethodName: "GetServerStats",
 			Handler:    _PanelService_GetServerStats_Handler,
 		},
@@ -3562,6 +3750,12 @@ var PanelService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PanelService_CallPlugin_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamConsole",
+			Handler:       _PanelService_StreamConsole_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "plugin.proto",
 }

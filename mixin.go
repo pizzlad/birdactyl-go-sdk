@@ -83,12 +83,19 @@ const (
 )
 
 type MixinContext struct {
-	Target    string
-	RequestID string
-	input     map[string]interface{}
-	chainData map[string]interface{}
-	nextCalled bool
-	result     MixinResult
+	Target        string
+	RequestID     string
+	input         map[string]interface{}
+	chainData     map[string]interface{}
+	nextCalled    bool
+	result        MixinResult
+	notifications []Notification
+}
+
+type Notification struct {
+	Title   string
+	Message string
+	Type    string
 }
 
 type MixinResult struct {
@@ -96,6 +103,7 @@ type MixinResult struct {
 	output        map[string]interface{}
 	err           string
 	modifiedInput map[string]interface{}
+	notifications []Notification
 }
 
 type MixinHandler func(*MixinContext) MixinResult
@@ -148,9 +156,25 @@ func (c *MixinContext) ChainData() map[string]interface{} {
 	return c.chainData
 }
 
+func (c *MixinContext) Notify(title, message, notifType string) {
+	c.notifications = append(c.notifications, Notification{Title: title, Message: message, Type: notifType})
+}
+
+func (c *MixinContext) NotifyError(title, message string) {
+	c.Notify(title, message, "error")
+}
+
+func (c *MixinContext) NotifySuccess(title, message string) {
+	c.Notify(title, message, "success")
+}
+
+func (c *MixinContext) NotifyInfo(title, message string) {
+	c.Notify(title, message, "info")
+}
+
 func (c *MixinContext) Next() MixinResult {
 	c.nextCalled = true
-	return MixinResult{action: 0, modifiedInput: c.result.modifiedInput}
+	return MixinResult{action: 0, modifiedInput: c.result.modifiedInput, notifications: c.notifications}
 }
 
 func (c *MixinContext) Return(data interface{}) MixinResult {
@@ -162,11 +186,11 @@ func (c *MixinContext) Return(data interface{}) MixinResult {
 		b, _ := json.Marshal(data)
 		json.Unmarshal(b, &out)
 	}
-	return MixinResult{action: 1, output: out}
+	return MixinResult{action: 1, output: out, notifications: c.notifications}
 }
 
 func (c *MixinContext) Error(msg string) MixinResult {
-	return MixinResult{action: 2, err: msg}
+	return MixinResult{action: 2, err: msg, notifications: c.notifications}
 }
 
 type MixinRegistration struct {

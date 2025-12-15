@@ -27,6 +27,7 @@ type Plugin struct {
 	panel      pb.PanelServiceClient
 	conn       *grpc.ClientConn
 	api        *API
+	asyncApi   *AsyncAPI
 	dataDir    string
 	useDataDir bool
 	onStart    func()
@@ -97,6 +98,10 @@ func (p *Plugin) API() *API {
 	return p.api
 }
 
+func (p *Plugin) Async() *AsyncAPI {
+	return p.asyncApi
+}
+
 func (p *Plugin) Log(msg string) {
 	ctx := metadata.AppendToOutgoingContext(context.Background(), "x-plugin-id", p.id)
 	p.panel.Log(ctx, &pb.LogRequest{Level: "info", Message: msg})
@@ -159,6 +164,7 @@ func (p *Plugin) Start(panelAddr string, defaultPort int) error {
 	p.conn = conn
 	p.panel = pb.NewPanelServiceClient(conn)
 	p.api = &API{panel: p.panel, pluginID: p.id}
+	p.asyncApi = &AsyncAPI{panel: p.panel, pluginID: p.id}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -325,6 +331,13 @@ func (s *pluginServer) OnMixin(ctx context.Context, req *pb.MixinRequest) (*pb.M
 	}
 	if result.modifiedInput != nil {
 		resp.ModifiedInput, _ = json.Marshal(result.modifiedInput)
+	}
+	for _, n := range result.notifications {
+		resp.Notifications = append(resp.Notifications, &pb.Notification{
+			Title:   n.Title,
+			Message: n.Message,
+			Type:    n.Type,
+		})
 	}
 
 	return resp, nil

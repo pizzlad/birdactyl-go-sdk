@@ -753,3 +753,91 @@ func (a *API) CallPlugin(pluginID, method string, data []byte) ([]byte, error) {
 	}
 	return r.Data, nil
 }
+
+type LogMatch struct {
+	Line       string
+	LineNumber int32
+	Timestamp  int64
+}
+
+type LogFile struct {
+	Name     string
+	Size     int64
+	Modified string
+}
+
+func (a *API) GetFullLog(serverID string) ([]byte, error) {
+	r, err := a.panel.GetFullLog(a.ctx(), &pb.IDRequest{Id: serverID})
+	if err != nil {
+		return nil, err
+	}
+	return r.Content, nil
+}
+
+func (a *API) SearchLogs(serverID, pattern string, regex bool, limit int32) ([]*LogMatch, error) {
+	r, err := a.panel.SearchLogs(a.ctx(), &pb.SearchLogsRequest{
+		ServerId: serverID,
+		Pattern:  pattern,
+		Regex:    regex,
+		Limit:    limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*LogMatch, len(r.Matches))
+	for i, m := range r.Matches {
+		out[i] = &LogMatch{Line: m.Line, LineNumber: m.LineNumber, Timestamp: m.Timestamp}
+	}
+	return out, nil
+}
+
+func (a *API) ListLogFiles(serverID string) ([]*LogFile, error) {
+	r, err := a.panel.ListLogFiles(a.ctx(), &pb.IDRequest{Id: serverID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*LogFile, len(r.Files))
+	for i, f := range r.Files {
+		out[i] = &LogFile{Name: f.Name, Size: f.Size, Modified: f.Modified}
+	}
+	return out, nil
+}
+
+func (a *API) ReadLogFile(serverID, filename string) ([]byte, error) {
+	r, err := a.panel.ReadLogFile(a.ctx(), &pb.ReadLogFileRequest{ServerId: serverID, Filename: filename})
+	if err != nil {
+		return nil, err
+	}
+	return r.Content, nil
+}
+
+type ConsoleStream struct {
+	stream pb.PanelService_StreamConsoleClient
+	cancel context.CancelFunc
+}
+
+func (c *ConsoleStream) Recv() (string, error) {
+	line, err := c.stream.Recv()
+	if err != nil {
+		return "", err
+	}
+	return line.Line, nil
+}
+
+func (c *ConsoleStream) Close() {
+	c.cancel()
+}
+
+func (a *API) StreamConsole(serverID string, includeHistory bool, historyLines int32) (*ConsoleStream, error) {
+	ctx, cancel := context.WithCancel(a.ctx())
+	stream, err := a.panel.StreamConsole(ctx, &pb.StreamConsoleRequest{
+		ServerId:       serverID,
+		IncludeHistory: includeHistory,
+		HistoryLines:   historyLines,
+	})
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	return &ConsoleStream{stream: stream, cancel: cancel}, nil
+}
